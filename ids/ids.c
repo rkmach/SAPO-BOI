@@ -84,6 +84,8 @@ static bool global_exit;
 struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
+static int number_of_queues;
+
 
 /*
 essa opção permite busy pool
@@ -166,7 +168,7 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
 }
 
 void handle_receive_packets(struct xsk_socket_info* xsk_info){
-    uint32_t idx_rx = 0;
+	uint32_t idx_rx = 0;
     uint32_t idx_fq = 0;
     int ret;
     unsigned int frames_received, stock_frames;
@@ -222,20 +224,62 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
     xsk_ring_cons__release(&xsk_info->rx, frames_received);
 }
 
+struct thread_args{
+	int i_queue;
+	struct pollfd* fds;
+	struct xsk_socket_info* xsk_socket;
+};
+
+void working_thread(void* argument){
+	// fds will be size 1
+	
+	struct thread_args* args = (struct thread_args*) argument;
+	int ret;
+	while(!global_exit){
+		ret = poll(args->fds, 1, -1);
+		if(ret <= 0)
+			continue;  // nenhum evento
+		if(args->fds[0].revents & POLLIN){
+			printf("recebi na fila %d\n", args->i_queue);
+			handle_receive_packets(args->xsk_socket);
+		}
+	}
+}
+
 void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets, int n_queues){
-    struct pollfd fds[n_queues];  // essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
-    memset(fds, 0, sizeof(fds));
-    int i_queue;
+    struct pollfd fds[n_queues][1];  // n_queue vetores de tamanho 1. Essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
+	for(int i = 0; i < n_queues; i++)
+	    memset(fds[i], 0, sizeof(fds[i]));
+    int i_queue, rc;
 
     for(i_queue = 0; i_queue < n_queues; i_queue++){
-        fds[i_queue].fd = xsk_socket__fd(xsk_sockets[i_queue]->xsk);
-        fds[i_queue].events = POLLIN;  // POLLIN = "there is data to read"
+        fds[i_queue][0].fd = xsk_socket__fd(xsk_sockets[i_queue]->xsk);
+        fds[i_queue][0].events = POLLIN;  // POLLIN = "there is data to read"
     }
 
-    int ret;
+	// Criando threads para realizar trabalho
+	pthread_t threads[n_queues];
+	struct thread_args args;
+	for(i_queue = 0; i_queue < n_queues; i_queue++){
+		args.i_queue = i_queue;
+		args.fds = fds[i_queue];
+		args.xsk_socket = xsk_sockets[i_queue];
+		rc = pthread_create(&(threads[i_queue]), NULL, (void*) working_thread, (void*)&args);
+		if(rc){
+			printf("Não consegui criar a thread %d. Abortando!!!!\n", i_queue);
+			return;
+		}
+	}
+
+	for(i_queue = 0; i_queue < n_queues; i_queue++){
+		pthread_join(threads[i_queue], NULL);
+	}
+    //int ret;
     // fica nesse loop por toda a execução da IDS
-    while(!global_exit){
-        printf("loop\n");
+    //while(!global_exit);
+	/*
+	{
+        //printf("loop\n");
         // supondo que a IDS rode somente no wake up mode para o FILL ring. Isso significa que o kernel vai ficar dormindo,
         // até que seja acordado // pela IDS. Quando for acordado, o kernel driver usará os endereços da fill ring para 
         //receber os pacotes. O kernel precisa ser devidamente acordado por uma syscall para continuar processando.
@@ -252,9 +296,8 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
                 handle_receive_packets(xsk_sockets[i_queue]);
             }
         }
-        
-
     }
+	*/
 }
 
 static void exit_application(int signal){
@@ -611,6 +654,7 @@ int main(int argc, char **argv)
 
     /* Configure and initialize AF_XDP sockets  (vetor de ponteiros!!) */
     int n_queues = cfg.xsk_if_queue;
+	number_of_queues = n_queues;
 	printf("Número de filas: %d\n\n", n_queues);
 
 	umems = (struct xsk_umem_info **)
