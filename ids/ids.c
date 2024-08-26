@@ -26,6 +26,7 @@
 #include <linux/icmpv6.h>
 #include <linux/udp.h>
 #include <linux/socket.h>
+#include <sys/syscall.h>
 
 /*
 #ifndef SO_PREFER_BUSY_POLL
@@ -224,6 +225,20 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
     xsk_ring_cons__release(&xsk_info->rx, frames_received);
 }
 
+
+pthread_t threads[1];
+
+static void exit_application(int signal){
+    xdp_link_detach(6, NULL, 0);
+	exit(0);
+	printf("exit_app\n\n");
+	for(int i = 0; i < 1; i++){
+		pthread_kill(threads[i], SIGALRM);
+	}
+	signal = signal;
+	global_exit = true;
+}
+
 struct thread_args{
 	int i_queue;
 	struct pollfd* fds;
@@ -231,8 +246,22 @@ struct thread_args{
 };
 
 void working_thread(void* argument){
-	// fds will be size 1
+	printf ("starting thread %d\n", syscall(SYS_gettid));
+	/*
+	struct sigaction action;
+	action.sa_handler = exit_application;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = 0;
+	sigaction(SIGINT, &action, NULL);
+	*/
 	
+	/*sigset_t mask;
+	sigemptyset(&mask);
+	pthread_sigmask(SIG_BLOCK, &mask, NULL);
+	*/
+
+	
+	// fds will be size 1
 	struct thread_args* args = (struct thread_args*) argument;
 	int ret;
 	while(!global_exit){
@@ -244,6 +273,7 @@ void working_thread(void* argument){
 			handle_receive_packets(args->xsk_socket);
 		}
 	}
+	printf ("thread is over\n");
 }
 
 void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets, int n_queues){
@@ -258,12 +288,13 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
     }
 
 	// Criando threads para realizar trabalho
-	pthread_t threads[n_queues];
+	printf ("Creating threads\n");
 	struct thread_args args;
 	for(i_queue = 0; i_queue < n_queues; i_queue++){
 		args.i_queue = i_queue;
 		args.fds = fds[i_queue];
 		args.xsk_socket = xsk_sockets[i_queue];
+		printf ("Creating thread %d\n", i_queue);
 		rc = pthread_create(&(threads[i_queue]), NULL, (void*) working_thread, (void*)&args);
 		if(rc){
 			printf("Não consegui criar a thread %d. Abortando!!!!\n", i_queue);
@@ -300,10 +331,6 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
 	*/
 }
 
-static void exit_application(int signal){
-	signal = signal;
-	global_exit = true;
-}
 
 static void create_dfa_per_rule(struct rule_t* rule, char**contents, size_t len_contents){
 	rule->dfa = get_ac_automaton(contents, len_contents);
@@ -548,8 +575,21 @@ int main(int argc, char **argv)
     struct bpf_object *bpf_obj = NULL;
 	struct bpf_map *map;
 
+	struct sigaction action;
+	action.sa_handler = exit_application;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = 0;
+	sigaction(SIGINT, &action, NULL);
+
+
+/*	
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+	pthread_sigmask(SIG_BLOCK, &mask, NULL);
+	*/
     /* Global shutdown handler */
-	signal(SIGINT, exit_application);
+	//signal(SIGINT, exit_application);
 
     parse_cmdline_args(argc, argv, long_options, &cfg, __doc__);
 
@@ -678,7 +718,9 @@ int main(int argc, char **argv)
 
 	/* -- XSKS sockets properly configurated. Go wait for packets --*/
 
+	printf ("About to enter rx_and_process\n");
     rx_and_process(&cfg, xsk_sockets, n_queues);
+	printf ("After rx_and_process\n");
 
     /* Cleanup */
 	for (int i_queue = 0; i_queue < n_queues; i_queue++) {
@@ -694,6 +736,5 @@ int main(int argc, char **argv)
 	xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
 	bpf_object__close(bpf_obj);	
 
-    xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
     return 0;
 }
