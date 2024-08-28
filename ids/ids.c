@@ -81,7 +81,8 @@ static const struct option_wrapper long_options[] = {
 };
 
 static const char *__doc__ = "AF_XDP kernel bypass example\n";
-static bool global_exit;
+//static bool global_exit;
+volatile sig_atomic_t global_exit = 0;
 struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
@@ -225,18 +226,18 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
     xsk_ring_cons__release(&xsk_info->rx, frames_received);
 }
 
-
-pthread_t threads[1];
+struct thread_struct {
+	pthread_t* threads;
+	size_t num_threads;
+} thread_set;
 
 static void exit_application(int signal){
-    xdp_link_detach(6, NULL, 0);
-	exit(0);
 	printf("exit_app\n\n");
-	for(int i = 0; i < 1; i++){
-		pthread_kill(threads[i], SIGALRM);
+ 	for(int i = 0; i < thread_set.num_threads; i++){
+		pthread_cancel(thread_set.threads[i]);
 	}
 	signal = signal;
-	global_exit = true;
+	global_exit = 1;
 }
 
 struct thread_args{
@@ -246,21 +247,6 @@ struct thread_args{
 };
 
 void working_thread(void* argument){
-	printf ("starting thread %d\n", syscall(SYS_gettid));
-	/*
-	struct sigaction action;
-	action.sa_handler = exit_application;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
-	sigaction(SIGINT, &action, NULL);
-	*/
-	
-	/*sigset_t mask;
-	sigemptyset(&mask);
-	pthread_sigmask(SIG_BLOCK, &mask, NULL);
-	*/
-
-	
 	// fds will be size 1
 	struct thread_args* args = (struct thread_args*) argument;
 	int ret;
@@ -273,7 +259,6 @@ void working_thread(void* argument){
 			handle_receive_packets(args->xsk_socket);
 		}
 	}
-	printf ("thread is over\n");
 }
 
 void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets, int n_queues){
@@ -288,14 +273,15 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
     }
 
 	// Criando threads para realizar trabalho
-	printf ("Creating threads\n");
 	struct thread_args args;
+	thread_set.num_threads = n_queues;
+	thread_set.threads = malloc(sizeof(pthread_t)*n_queues);
 	for(i_queue = 0; i_queue < n_queues; i_queue++){
 		args.i_queue = i_queue;
 		args.fds = fds[i_queue];
 		args.xsk_socket = xsk_sockets[i_queue];
 		printf ("Creating thread %d\n", i_queue);
-		rc = pthread_create(&(threads[i_queue]), NULL, (void*) working_thread, (void*)&args);
+		rc = pthread_create(&(thread_set.threads[i_queue]), NULL, (void*) working_thread, (void*)&args);
 		if(rc){
 			printf("Não consegui criar a thread %d. Abortando!!!!\n", i_queue);
 			return;
@@ -303,32 +289,8 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
 	}
 
 	for(i_queue = 0; i_queue < n_queues; i_queue++){
-		pthread_join(threads[i_queue], NULL);
+		pthread_join(thread_set.threads[i_queue], NULL);
 	}
-    //int ret;
-    // fica nesse loop por toda a execução da IDS
-    //while(!global_exit);
-	/*
-	{
-        //printf("loop\n");
-        // supondo que a IDS rode somente no wake up mode para o FILL ring. Isso significa que o kernel vai ficar dormindo,
-        // até que seja acordado // pela IDS. Quando for acordado, o kernel driver usará os endereços da fill ring para 
-        //receber os pacotes. O kernel precisa ser devidamente acordado por uma syscall para continuar processando.
-
-        // ret é o número de socket com algum evento (infelizmente não retorna quais os sockets :( 
-        ret = poll(fds, n_queues, -1);  // timeout = -1. Sinifica que vai ficar bloqueado até que um evento ocorra.
-
-        if(ret <= 0){
-            continue;  // nenhum evento em nenhum socket
-        }
-        for(i_queue = 0; i_queue < n_queues; i_queue++){
-            if(fds[i_queue].revents & POLLIN){
-                printf("recebi na fila %d\n", i_queue);
-                handle_receive_packets(xsk_sockets[i_queue]);
-            }
-        }
-    }
-	*/
 }
 
 
@@ -734,7 +696,9 @@ int main(int argc, char **argv)
 	fclose(log_file);
 
 	xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
-	bpf_object__close(bpf_obj);	
+	bpf_object__close(bpf_obj);
 
+	free(thread_set.threads);	
+    xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
     return 0;
 }
