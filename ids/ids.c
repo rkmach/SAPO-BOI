@@ -81,6 +81,7 @@ static const struct option_wrapper long_options[] = {
 };
 
 static const char *__doc__ = "AF_XDP kernel bypass example\n";
+static char iface_name[16];
 //static bool global_exit;
 volatile sig_atomic_t global_exit = 0;
 struct xdp_hints_mark xdp_hints_mark = { 0 };
@@ -334,7 +335,9 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
     char map_name[24];
     struct automaton dfa;
     
-    const char *pin_dir = "/sys/fs/bpf/amigo";  //MUDAR
+    char pin_dir[32];
+	sprintf(pin_dir, "/sys/fs/bpf/%s", iface_name);
+	puts(pin_dir);
 
     /* In this moment, every pattern in the port group has been collected, so it's possible to create dfas */
 	build_automaton(fast_patterns_array, len_fp_arr, &dfa);
@@ -542,6 +545,8 @@ int main(int argc, char **argv)
 	sigaction(SIGINT, &action, NULL);
 
     parse_cmdline_args(argc, argv, long_options, &cfg, __doc__);
+
+	strcpy(iface_name, cfg.ifname);	
 
     bpf_obj = load_bpf_and_xdp_attach(&cfg);
     if (!bpf_obj) {
