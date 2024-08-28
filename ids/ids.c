@@ -86,8 +86,6 @@ volatile sig_atomic_t global_exit = 0;
 struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
-static int number_of_queues;
-
 
 /*
 essa opção permite busy pool
@@ -543,16 +541,6 @@ int main(int argc, char **argv)
 	action.sa_flags = 0;
 	sigaction(SIGINT, &action, NULL);
 
-
-/*	
-	sigset_t mask;
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGINT);
-	pthread_sigmask(SIG_BLOCK, &mask, NULL);
-	*/
-    /* Global shutdown handler */
-	//signal(SIGINT, exit_application);
-
     parse_cmdline_args(argc, argv, long_options, &cfg, __doc__);
 
     bpf_obj = load_bpf_and_xdp_attach(&cfg);
@@ -656,7 +644,6 @@ int main(int argc, char **argv)
 
     /* Configure and initialize AF_XDP sockets  (vetor de ponteiros!!) */
     int n_queues = cfg.xsk_if_queue;
-	number_of_queues = n_queues;
 	printf("Número de filas: %d\n\n", n_queues);
 
 	umems = (struct xsk_umem_info **)
@@ -680,9 +667,7 @@ int main(int argc, char **argv)
 
 	/* -- XSKS sockets properly configurated. Go wait for packets --*/
 
-	printf ("About to enter rx_and_process\n");
     rx_and_process(&cfg, xsk_sockets, n_queues);
-	printf ("After rx_and_process\n");
 
     /* Cleanup */
 	for (int i_queue = 0; i_queue < n_queues; i_queue++) {
