@@ -1,7 +1,11 @@
+import os
+
 tcp_port_pair = {}
 udp_port_pair = {}
 ignored_rules = []
 
+seen_sids = []
+processed_rules = 0
 
 var_ports = {
         b'$HTTP_PORTS': b'[36,80,81,82,83,84,85,86,87,88,89,90,311,383,555,591,593,631,801,808,818,901,972,1158,1220,1414,1533,1741,1830,1942,2231,2301,2381,2809,2980,3029,3037,3057,3128,3443,3702,4000,4343,4848,5000,5117,5250,5600,6080,6173,6988,7000,7001,7071,7144,7145,7510,7770,7777,7778,7779,8000,8008,8014,8028,8080,8081,8082,8085,8088,8090,8118,8123,8180,8181,8222,8243,8280,8300,8333,8344,8500,8509,8800,8888,8899,8983,9000,9060,9080,9090,9091,9111,9290,9443,9999,10000,11371,12601,13014,15489,29991,33300,34412,34443,34444,41080,44449,50000,50002,51423,53331,55252,55555,56712]',
@@ -124,6 +128,11 @@ def get_contents_by_rule (rule):
     for i in range (len(rule)):
         if b'sid:' in rule[i]:
             sid = rule[i].replace(b' sid:',b'')
+            if sid not in seen_sids:
+                seen_sids.append(sid)
+            else:
+                print(f"sid {sid} já foi analisado!!!!!!")
+                return {}
             break
 
     ret[sid] = []
@@ -153,8 +162,11 @@ def remove_useless_brackets (ports):
             
 
 def load_rules (file_name):
+    global processed_rules
     f_in = open (file_name, 'rb')
     for i in f_in:
+        if not i.startswith(b'alert'):
+            continue
         ports = get_ports_by_rule(i)
         contents = get_contents_by_rule(i)
         contents = contents_to_byte (contents)
@@ -162,6 +174,7 @@ def load_rules (file_name):
         if ports == (b'',b'') or contents == {}:
             continue
 
+        processed_rules += 1
         if protocol == b'tcp':
             if ports not in tcp_port_pair:
                 tcp_port_pair[ports] = [contents]
@@ -220,12 +233,21 @@ def flush_rules():
     f_udp.close()
 
 
-load_rules('snort3-community.rules')
-flush_rules()
+if __name__ == "__main__":
+    processed_rules = 0
+    #load_rules('snort3-community.rules')
+    # *************************************************MUDAR**********************************************
+    rules_dir = "rules/"
+    for file in os.listdir(rules_dir):
+        if file.endswith(".rules"):
+           load_rules(os.path.join(rules_dir, file))
+
+    print(f"\nForam processadas {processed_rules} regras!!\n")
+    flush_rules()
 
 
-'''
-for i in udp_port_pair:
-    print (str(i) + ': ' + str(udp_port_pair[i]))
-    print ()
-'''
+    '''
+    for i in udp_port_pair:
+        print (str(i) + ': ' + str(udp_port_pair[i]))
+        print ()
+    '''
