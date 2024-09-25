@@ -106,6 +106,34 @@ def get_layer4_protocol_by_rule (rule):
     rule = rule.split (b' ')
     return rule[1]
 
+def parse_port_format(port_bytes):
+    if b'![' in port_bytes:
+        first_offset = port_bytes.find(b'[')
+        last_offset = port_bytes.find(b']') + 1
+        print(port_bytes)
+        print(port_bytes[first_offset:last_offset])
+        list_size = port_bytes[first_offset:last_offset].count(b',') + 1
+        print(list_size)
+        
+        port_bytes = port_bytes[:first_offset+1] + str.encode(' '+str(list_size)+' ') + port_bytes[first_offset+1:]
+        print(port_bytes) 
+    
+    port_bytes = port_bytes.replace(b'![', b'-2 -3 ').replace(b'[', b'').replace(b']', b'').replace(b',', b' ').replace(b'!', b'-2 ').replace(b':', b' -1 ')
+    port_list = port_bytes.split()
+    
+    i = 0
+    while i < len (port_list):
+        if port_list[i] == b'-1':
+            if i == len(port_list) - 1:
+                port_list.append(b'65535')
+            tmp = port_list[i - 1]
+            port_list[i - 1] = port_list[i]
+            port_list[i] = tmp
+        i = i + 1
+
+    port_bytes = b' '.join(port_list)
+    return port_bytes
+
 def get_ports_by_rule (rule):
     src_port = b''
     dst_port = b''
@@ -113,8 +141,14 @@ def get_ports_by_rule (rule):
     for j in range (len(rule)):
         if rule[j] == b'->' or rule[j] == b'<>':
             src_port = rule[j - 1]
+            if src_port == b'any':
+                src_port = b'0'
+            src_port = parse_port_format(src_port)
         elif rule [j] == b'(':
-            dst_port = rule[j - 1]
+            dst_port = rule[j - 1];
+            if dst_port == b'any':
+                dst_port = b'0'
+            dst_port = parse_port_format(dst_port) 
     if src_port != b'':
         return (src_port, dst_port)
     return (b'', b'')
@@ -192,23 +226,24 @@ def load_rules (file_name):
 def flush_rules():
     f_tcp = open ('sapo_boi_tcp_rules.perereca', 'wb')
     for port_pair in tcp_port_pair:
-        f_tcp.write (port_pair[0] + b'\n')
-        f_tcp.write (port_pair [1] + b'\n')
+        f_tcp.write (port_pair[0] + b'\n')  # escreve porta fonte
+        f_tcp.write (port_pair [1] + b'\n') # escreve porta destino
+                                            # terminou de escrever o par de portas
         
-        f_tcp.write (b'%d\n' % len(tcp_port_pair[port_pair]))
+        f_tcp.write (b'%d\n' % len(tcp_port_pair[port_pair]))  # escreve a quantidade de regras do par 
        
         current_rule_set = tcp_port_pair[port_pair]
         for rule in current_rule_set:
             sid = list(rule.keys())[0]
-            f_tcp.write (sid + b'\n')
-            f_tcp.write (b'%d\n'  % len(rule[sid]))
+            f_tcp.write (sid + b'\n')  # escreve signature id da regra
+            f_tcp.write (b'%d\n'  % len(rule[sid]))  # escreve quantos contents têm na regra
 
             for content in rule[sid]:
-                f_tcp.write (b'%d\n' % len(content[0]))
-                f_tcp.write (content[0] + b'\n')
+                f_tcp.write (b'%d\n' % len(content[0]))  # escreve o tamanho do content
+                f_tcp.write (content[0] + b'\n')  # escreve o content
                 options_tuple = parse_content_options (content[1])
-                f_tcp.write (b'%d' % options_tuple[0] + b'\n')
-                f_tcp.write (options_tuple[1] + b'\n')
+                f_tcp.write (b'%d' % options_tuple[0] + b'\n') # escreve bitmap de modificadores
+                f_tcp.write (options_tuple[1] + b'\n') # escreve as opções dos modificadores
     f_tcp.close()
 
     f_udp = open ('sapo_boi_udp_rules.perereca', 'wb')
