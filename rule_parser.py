@@ -8,8 +8,11 @@ seen_sids = []
 processed_rules = 0
 
 var_ports = {
-        b'$HTTP_PORTS': b'[36,80,81,82,83,84,85,86,87,88,89,90,311,383,555,591,593,631,801,808,818,901,972,1158,1220,1414,1533,1741,1830,1942,2231,2301,2381,2809,2980,3029,3037,3057,3128,3443,3702,4000,4343,4848,5000,5117,5250,5600,6080,6173,6988,7000,7001,7071,7144,7145,7510,7770,7777,7778,7779,8000,8008,8014,8028,8080,8081,8082,8085,8088,8090,8118,8123,8180,8181,8222,8243,8280,8300,8333,8344,8500,8509,8800,8888,8899,8983,9000,9060,9080,9090,9091,9111,9290,9443,9999,10000,11371,12601,13014,15489,29991,33300,34412,34443,34444,41080,44449,50000,50002,51423,53331,55252,55555,56712]',
-        b'$SSH_PORTS': b'22'
+        b'$HTTP_PORTS': b'36 80 81 82 83 84 85 86 87 88 89 90 311 383 555 591 593 631 801 808 818 901 972 1158 1220 1414 1533 1741 1830 1942 2231 2301 2381 2809 2980 3029 3037 3057 3128 3443 3702 4000 4343 4848 5000 5117 5250 5600 6080 6173 6988 7000 7001 7071 7144 7145 7510 7770 7777 7778 7779 8000 8008 8014 8028 8080 8081 8082 8085 8088 8090 8118 8123 8180 8181 8222 8243 8280 8300 8333 8344 8500 8509 8800 8888 8899 8983 9000 9060 9080 9090 9091 9111 9290 9443 9999 10000 11371 12601 13014 15489 29991 33300 34412 34443 34444 41080 44449 50000 50002 51423 53331 55252 55555 56712' ,
+        b'$SSH_PORTS': b'22',
+        b'$FTP_PORTS': b'21, 2100, 3535',
+        b'$ORACLE_PORTS': b'-1 1024 65535',
+        b'$SHELLCODE_PORTS': b'-2 80'
         }
 
 
@@ -110,13 +113,9 @@ def parse_port_format(port_bytes):
     if b'![' in port_bytes:
         first_offset = port_bytes.find(b'[')
         last_offset = port_bytes.find(b']') + 1
-        print(port_bytes)
-        print(port_bytes[first_offset:last_offset])
         list_size = port_bytes[first_offset:last_offset].count(b',') + 1
-        print(list_size)
         
         port_bytes = port_bytes[:first_offset+1] + str.encode(' '+str(list_size)+' ') + port_bytes[first_offset+1:]
-        print(port_bytes) 
     
     port_bytes = port_bytes.replace(b'![', b'-2 -3 ').replace(b'[', b'').replace(b']', b'').replace(b',', b' ').replace(b'!', b'-2 ').replace(b':', b' -1 ')
     port_list = port_bytes.split()
@@ -134,6 +133,19 @@ def parse_port_format(port_bytes):
     port_bytes = b' '.join(port_list)
     return port_bytes
 
+def resolve_port_vars(port):
+    for i in var_ports:
+        if i in port:
+            port = port.replace(i, var_ports[i])
+            '''
+            port = port.split(b' ')
+            port = list(map(int, port))
+            port.sort()
+            port = [bytes(str(x), 'ascii') for x in port]
+            port = b' '.join(port)
+            '''
+    return port
+
 def get_ports_by_rule (rule):
     src_port = b''
     dst_port = b''
@@ -150,6 +162,8 @@ def get_ports_by_rule (rule):
                 dst_port = b'0'
             dst_port = parse_port_format(dst_port) 
     if src_port != b'':
+        src_port = resolve_port_vars(src_port)
+        dst_port = resolve_port_vars(dst_port)
         return (src_port, dst_port)
     return (b'', b'')
 
@@ -165,7 +179,6 @@ def get_contents_by_rule (rule):
             if sid not in seen_sids:
                 seen_sids.append(sid)
             else:
-                print(f"sid {sid} já foi analisado!!!!!!")
                 return {}
             break
 
@@ -196,7 +209,6 @@ def remove_useless_brackets (ports):
             
 
 def load_rules (file_name):
-    global processed_rules
     f_in = open (file_name, 'rb')
     for i in f_in:
         if not i.startswith(b'alert'):
@@ -208,7 +220,6 @@ def load_rules (file_name):
         if ports == (b'',b'') or contents == {}:
             continue
 
-        processed_rules += 1
         if protocol == b'tcp':
             if ports not in tcp_port_pair:
                 tcp_port_pair[ports] = [contents]
@@ -224,16 +235,17 @@ def load_rules (file_name):
         
 
 def flush_rules():
+    global processed_rules
     f_tcp = open ('sapo_boi_tcp_rules.perereca', 'wb')
     for port_pair in tcp_port_pair:
-        f_tcp.write (port_pair[0] + b'\n')  # escreve porta fonte
-        f_tcp.write (port_pair [1] + b'\n') # escreve porta destino
-                                            # terminou de escrever o par de portas
+        f_tcp.write (port_pair[0] + b'\n')
+        f_tcp.write (port_pair [1] + b'\n')
         
         f_tcp.write (b'%d\n' % len(tcp_port_pair[port_pair]))  # escreve a quantidade de regras do par 
        
         current_rule_set = tcp_port_pair[port_pair]
         for rule in current_rule_set:
+            processed_rules += 1
             sid = list(rule.keys())[0]
             f_tcp.write (sid + b'\n')  # escreve signature id da regra
             f_tcp.write (b'%d\n'  % len(rule[sid]))  # escreve quantos contents têm na regra
@@ -255,6 +267,7 @@ def flush_rules():
        
         current_rule_set = udp_port_pair[port_pair]
         for rule in current_rule_set:
+            processed_rules += 1
             sid = list(rule.keys())[0]
             f_udp.write (sid + b'\n')
             f_udp.write (b'%d\n'  % len(rule[sid]))
@@ -277,8 +290,8 @@ if __name__ == "__main__":
         if file.endswith(".rules"):
            load_rules(os.path.join(rules_dir, file))
 
-    print(f"\nForam processadas {processed_rules} regras!!\n")
     flush_rules()
+    print(f"\nForam processadas {processed_rules} regras!!\n")
 
 
     '''

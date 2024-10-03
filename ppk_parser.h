@@ -24,10 +24,7 @@
 #define PPK_STATE_ROPTIONS 8
 
 #define PPK_LINE_SIZE 1024
-#define PPK_STR_INT_SIZE 10
-
-//#define PPK_ERR (a) do{printf ("ERROR: %s: %s", stra (a), __func__, ##__VA_ARGS__),exit (a)}while(0)
-//define PPK_ERR(a, ...) printf("%s(): " a, __func__, ##__VA_ARGS__)
+#define PPK_STR_INT_SIZE 1024
 
 struct ppk_content{
         char* pattern;

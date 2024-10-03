@@ -22,7 +22,7 @@ static int read_line (int fd, char * buf, int buf_size) {
                 if (cur_pos == buf_size)
                         PPK_ERR (EIO,__func__);
         }
- 
+
         if(!read_bytes)
                 return 0;
 
@@ -151,7 +151,7 @@ static int ppk_read_contents(int fd, struct ppk_content* content){
                 PPK_ERR (EIO,__func__);
         }
         lseek (fd, content->pos + content->size_pattern + 1, SEEK_SET);
-        
+
         return 0;
 }
 
@@ -192,15 +192,27 @@ int ppk_automaton(int fd){
         struct ppk_content *curr_content;
         int content_index = 0;
         int rule_index = 0;
+        int port_pair_index = 0;
         int cont = 0;
         while(1){
                 switch (curr_state){
                         case PPK_STATE_RPORTS:
                                 printf("%s\n","PPK_STATE_RPORTS");
-                                printf("cont = %d\n", cont++);
                                 curr_port_pair = ppk_read_ports(fd);
-                                if(!curr_port_pair)  
-                                       return 0; 
+                                //                                printf("src = \n");
+                                //                                for(int i =0; i<curr_port_pair->size_src_port; i++){
+                                //                                        printf("%d ", curr_port_pair->src_port[i]);
+                                //                                }
+                                //                                printf("\n");
+                                //                                printf("dst = \n");
+                                //                                for(int i =0; i<curr_port_pair->size_dst_port; i++){
+                                //                                        printf("%d ", curr_port_pair->dst_port[i]);
+                                //                                }
+                                //                                printf("\n");
+                                if(!curr_port_pair)  {
+                                        printf("NUM REGRAS = %d\n", cont);
+                                        return 0; 
+                                }
                                 curr_state = PPK_STATE_RNRULES;
                                 break;
                         case PPK_STATE_RNRULES:
@@ -211,6 +223,7 @@ int ppk_automaton(int fd){
                                 curr_state = PPK_STATE_RSID;
                                 break;
                         case PPK_STATE_RSID:
+                                cont++;
                                 printf("%s\n","PPK_STATE_RSID");
                                 ppk_read_int(fd, &curr_rule->sid);
                                 curr_state = PPK_STATE_RNCONTENTS;
@@ -239,8 +252,12 @@ int ppk_automaton(int fd){
                                 if(content_index == curr_rule->num_contents){
                                         printf ("AAA\n");
                                         rule_index++;
+                                        printf("rule_index = %d\n", rule_index);
                                         if(rule_index == curr_port_pair->num_rules){
                                                 printf ("BBB\n");
+                                                // AQUI colocar o port_pair num vetor tbm!
+                                                printf("port_pair_index = %d\n", port_pair_index);
+                                                port_pair_index++;
                                                 curr_state = PPK_STATE_RPORTS;                
                                         }
                                         else{
@@ -251,7 +268,7 @@ int ppk_automaton(int fd){
                                 }
                                 // nao eh ultimo content
                                 else{
-                                                printf ("DDD\n");
+                                        printf ("DDD\n");
                                         curr_content = &curr_rule->contents[content_index];
                                         curr_state = PPK_STATE_RNBYTES;
                                 }
