@@ -296,10 +296,7 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
         struct ppk_rule *cur_rule;
         struct ppk_content *cur_content;
         for (int i = 0 ; i < size ; i++){
-                printf ("i: %d\n", i); 
-                getchar();
                 cur_port_pair = port_pairs[i];
-                //cur_port_pair = port_pairs[27];
                 for (int j = 0 ; j < cur_port_pair->num_rules ; j++){
                         cur_rule = cur_port_pair->rules + j;
                         cur_rule->trie = ahocora_create_trie();
@@ -309,35 +306,42 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
                                                 cur_content->pattern,
                                                 cur_content->size_pattern,
                                                 cur_rule->sid);
+                                free (cur_content->pattern);
+                                cur_content->pattern = 0;
+
                         }
-                        //ahocora_build_suffix_links (cur_rule->trie);
-                        //ahocora_build_dict_suffix_links (cur_rule->trie);
+                        ahocora_build_suffix_links (cur_rule->trie);
+                        ahocora_build_dict_suffix_links (cur_rule->trie);
                 }
         }
-        //ahocora_print_trie (port_pairs[0]->rules[0].trie);
+        //printf ("biggest_rule: %d\n", biggest_rule);
+        //ahocora_print_trie (port_pairs[11]->rules[86].trie);
 
 }
 
 int main(){
-        int udp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
+        int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
         if (udp_fd < 0)
                 exit(-1);
         int udp_port_pair_size = 0;
         struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size);
         close (udp_fd);
 
-        /*
+        
         int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
         if (tcp_fd < 0)
                 exit(-1);
         int tcp_port_pair_size = 0;
-        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, tcp_port_pair_size);
-        close (tcp_fd)'
-        */
+        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size);
+        close (tcp_fd);
+       
 
         ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
 
-        //ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pairs_size);
+        ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
+        char input [30] = {'\x00','\x01','\x00','\x00','\x00','\x00','\x00','\x00','i','s','\x03','b', 'i', 'z', '\x00','\x00','\x01','\x00','\x01'};
+        printf("result = %d\n", ahocora_search(udp_port_pairs[11]->rules[86].trie,input, 19));
+
 
         return 0;
 }

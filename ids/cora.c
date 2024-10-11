@@ -40,6 +40,7 @@ void ahocora_print_trie (struct ahocora_trie *trie)
                 }
                 printf ("----- NODE %d -----\n\n", i);
         }
+        printf ("WTFF\n");
 }
 static int ahocora_lookup (struct ahocora_trie *trie, uint8_t *pattern,
                 int size)
@@ -141,7 +142,7 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                 int pattern_size, int rule_sid)
 {
         struct ahocora_node * cur_node = trie->array[0];
-
+        int new_final_state = 0;
         for (int i = 0 ; i < pattern_size ; i++) {
                 uint8_t cur_byte = 0;
                 cur_byte = pattern[i];
@@ -151,6 +152,7 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                                 trie->array[cur_node->basic_links[cur_byte]];
                         continue;
                 }
+                new_final_state = 1;
 
                 struct ahocora_node *new_node = ahocora_create_node();
 
@@ -164,7 +166,9 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                 cur_node = new_node;
         }
 
-        trie->num_patterns++;
+        if (new_final_state)
+                trie->num_patterns++;
+
         cur_node->rule_sid = rule_sid;
 }
 
@@ -232,6 +236,7 @@ int ahocora_search (struct ahocora_trie *trie, uint8_t *input, int size)
         int node_id;
         struct ahocora_node *node = trie->array[0];
         for (int i = 0 ; i < size + 1 ; i++){
+                printf ("looking %hhx[%c]\n", input[i],  input[i]);
                 if (node->rule_sid != -1 && node->hit == 0){
                         node->hit = 1;
                         num_found_patterns++;
