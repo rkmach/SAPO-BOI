@@ -5,12 +5,12 @@
 #include <string.h>
 #include "ppk_parser.h"
 
-static inline void PPK_ERR(int err, const char* func_name){
+static inline void PPK_ERR(int err, const uint8_t* func_name){
         printf("ERROR: %s: %s\n", strerror(err), func_name);
         exit(-err);
 }
 
-static int read_line (int fd, char * buf, int buf_size) {
+static int read_line (int fd, uint8_t * buf, int buf_size) {
         int cur_pos = 0;
         ssize_t read_bytes = 0;
         while (read_bytes = read (fd, buf + cur_pos, 1) > 0){
@@ -29,8 +29,8 @@ static int read_line (int fd, char * buf, int buf_size) {
         return cur_pos + 1;
 }
 
-static int* ppk_parse_ports(char* buf, int* size){
-        char port[PPK_STR_INT_SIZE] = {0};
+static int* ppk_parse_ports(uint8_t* buf, int* size){
+        uint8_t port[PPK_STR_INT_SIZE] = {0};
         int index = 0, p_index = 0;
         int * ret = malloc(sizeof(int) * PPK_LINE_SIZE);
         if (!ret)
@@ -58,7 +58,7 @@ static struct ppk_port_pair* ppk_read_ports(int fd){
         if (!port_pair)
                 PPK_ERR (ENOMEM,__func__);
 
-        char* buf = malloc(PPK_LINE_SIZE);
+        uint8_t* buf = malloc(PPK_LINE_SIZE);
         if (!buf)
                 PPK_ERR (ENOMEM,__func__);
 
@@ -83,14 +83,16 @@ static struct ppk_port_pair* ppk_read_ports(int fd){
 
 
 static void ppk_read_int(int fd, int* field){
-        char buf[PPK_STR_INT_SIZE];
+        uint8_t buf[PPK_STR_INT_SIZE];
         int size = read_line(fd, buf, PPK_STR_INT_SIZE);
         buf[size - 1] = 0;
         *field = atoi(buf);
 }
 
 
-static void ppk_parse_bitmap(struct ppk_content* content, int bitmap, char * options){
+static void ppk_parse_bitmap(struct ppk_content* content, int bitmap,
+                uint8_t * options)
+{
         int options_value [4] = {0};
 
         if (bitmap & PPK_FAST_PAT)
@@ -101,7 +103,7 @@ static void ppk_parse_bitmap(struct ppk_content* content, int bitmap, char * opt
         if ( !(bitmap & (PPK_DEPTH | PPK_OFFSET | PPK_DISTANCE | PPK_WITHIN)))
                 return;
 
-        char cur_option [PPK_STR_INT_SIZE] = {0};
+        uint8_t cur_option [PPK_STR_INT_SIZE] = {0};
 
         int idx = 0;
         int cur_option_int = 0;
@@ -141,7 +143,7 @@ static void ppk_parse_bitmap(struct ppk_content* content, int bitmap, char * opt
 }
 
 static int ppk_read_contents(int fd, struct ppk_content* content){
-        content->pattern = malloc(sizeof(char) * content->size_pattern); 
+        content->pattern = malloc(sizeof(uint8_t) * content->size_pattern); 
         if (!content->pattern)
                 PPK_ERR(ENOMEM,__func__);
 
@@ -169,24 +171,41 @@ static void  ppk_read_nrules(int fd, struct ppk_port_pair* port_pair) {
 static void ppk_read_options(int fd, struct ppk_content* content){
         int bitmap;
         ppk_read_int(fd, &bitmap);
-        char buf [PPK_LINE_SIZE] = {0};
+        uint8_t buf [PPK_LINE_SIZE] = {0};
         read_line(fd, buf, PPK_LINE_SIZE);
 
         ppk_parse_bitmap(content, bitmap, buf);
-        printf ("HAHHAHAHA\n");
 
 }
-static void ppk_read_ncontents (int fd, struct ppk_rule *rule,  int *num_contents)
+static void ppk_read_ncontents (int fd, struct ppk_rule *rule,
+                int *num_contents)
 {
         ppk_read_int(fd, num_contents);
-        rule->contents = malloc(sizeof(struct ppk_content) * rule->num_contents);
+        rule->contents = malloc (
+                        sizeof(struct ppk_content) * rule->num_contents);
         if (!rule->contents)
                 PPK_ERR (ENOMEM, __func__);
         memset (rule->contents, 0, sizeof (struct ppk_content));
 }
 
-int ppk_automaton(int fd){
-        int curr_state = PPK_STATE_RPORTS;
+static struct ppk_port_pair** ppk_read_nports (int fd, int *port_pairs_size)
+{
+        struct ppk_port_pair **port_pairs;
+        int num_ports;
+        ppk_read_int (fd, &num_ports);
+
+        port_pairs = (struct ppk_port_pair**) malloc (
+                        sizeof (struct ppk_port_pair*) * num_ports);
+        *port_pairs_size = num_ports;
+        if (!port_pairs)
+                PPK_ERR (ENOMEM, __func__);
+        return port_pairs;
+}
+
+struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size){
+        int curr_state = PPK_STATE_RNPORTS;
+
+        struct ppk_port_pair **port_pairs;
         struct ppk_port_pair* curr_port_pair;
         struct ppk_rule* curr_rule;
         struct ppk_content *curr_content;
@@ -196,22 +215,19 @@ int ppk_automaton(int fd){
         int cont = 0;
         while(1){
                 switch (curr_state){
+                        case PPK_STATE_RNPORTS:
+                                port_pairs = ppk_read_nports (fd,
+                                                port_pairs_size);
+                                curr_state = PPK_STATE_RPORTS;
+                                break;
                         case PPK_STATE_RPORTS:
                                 printf("%s\n","PPK_STATE_RPORTS");
                                 curr_port_pair = ppk_read_ports(fd);
-                                //                                printf("src = \n");
-                                //                                for(int i =0; i<curr_port_pair->size_src_port; i++){
-                                //                                        printf("%d ", curr_port_pair->src_port[i]);
-                                //                                }
-                                //                                printf("\n");
-                                //                                printf("dst = \n");
-                                //                                for(int i =0; i<curr_port_pair->size_dst_port; i++){
-                                //                                        printf("%d ", curr_port_pair->dst_port[i]);
-                                //                                }
-                                //                                printf("\n");
+                                port_pairs[port_pair_index] = curr_port_pair;
+
                                 if(!curr_port_pair)  {
                                         printf("NUM REGRAS = %d\n", cont);
-                                        return 0; 
+                                        return port_pairs; 
                                 }
                                 curr_state = PPK_STATE_RNRULES;
                                 break;
@@ -231,8 +247,10 @@ int ppk_automaton(int fd){
                         case PPK_STATE_RNCONTENTS:
                                 printf("%s\n","PPK_STATE_RNCONTENTS");
                                 content_index = 0;
-                                ppk_read_ncontents (fd, curr_rule, &curr_rule->num_contents);
-                                curr_content = &curr_rule->contents[content_index];
+                                ppk_read_ncontents (fd, curr_rule,
+                                                &curr_rule->num_contents);
+                                curr_content =
+                                        &curr_rule->contents[content_index];
                                 curr_state = PPK_STATE_RNBYTES;
                                 break;
                         case PPK_STATE_RNBYTES:
@@ -250,25 +268,19 @@ int ppk_automaton(int fd){
                                 ppk_read_options(fd, curr_content);
                                 content_index++;
                                 if(content_index == curr_rule->num_contents){
-                                        printf ("AAA\n");
                                         rule_index++;
-                                        printf("rule_index = %d\n", rule_index);
-                                        if(rule_index == curr_port_pair->num_rules){
-                                                printf ("BBB\n");
-                                                // AQUI colocar o port_pair num vetor tbm!
-                                                printf("port_pair_index = %d\n", port_pair_index);
+                                        if(rule_index ==
+                                           curr_port_pair->num_rules){
                                                 port_pair_index++;
                                                 curr_state = PPK_STATE_RPORTS;                
                                         }
                                         else{
-                                                printf ("CCC\n");
                                                 curr_rule = &curr_port_pair->rules[rule_index];
                                                 curr_state = PPK_STATE_RSID;
                                         }
                                 }
                                 // nao eh ultimo content
                                 else{
-                                        printf ("DDD\n");
                                         curr_content = &curr_rule->contents[content_index];
                                         curr_state = PPK_STATE_RNBYTES;
                                 }
@@ -278,11 +290,54 @@ int ppk_automaton(int fd){
 }
 
 
-int main(){
-        int fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
-        if (fd < 0) exit(-1);
+void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
+{
+        struct ppk_port_pair *cur_port_pair;
+        struct ppk_rule *cur_rule;
+        struct ppk_content *cur_content;
+        for (int i = 0 ; i < size ; i++){
+                printf ("i: %d\n", i); 
+                getchar();
+                cur_port_pair = port_pairs[i];
+                //cur_port_pair = port_pairs[27];
+                for (int j = 0 ; j < cur_port_pair->num_rules ; j++){
+                        cur_rule = cur_port_pair->rules + j;
+                        cur_rule->trie = ahocora_create_trie();
+                        for (int k = 0 ; k < cur_rule->num_contents ; k++) {
+                                cur_content = cur_rule->contents + k;
+                                ahocora_insert_pattern (cur_rule->trie,
+                                                cur_content->pattern,
+                                                cur_content->size_pattern,
+                                                cur_rule->sid);
+                        }
+                        //ahocora_build_suffix_links (cur_rule->trie);
+                        //ahocora_build_dict_suffix_links (cur_rule->trie);
+                }
+        }
+        //ahocora_print_trie (port_pairs[0]->rules[0].trie);
 
-        ppk_automaton(fd);
+}
+
+int main(){
+        int udp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
+        if (udp_fd < 0)
+                exit(-1);
+        int udp_port_pair_size = 0;
+        struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size);
+        close (udp_fd);
+
+        /*
+        int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
+        if (tcp_fd < 0)
+                exit(-1);
+        int tcp_port_pair_size = 0;
+        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, tcp_port_pair_size);
+        close (tcp_fd)'
+        */
+
+        ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
+
+        //ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pairs_size);
 
         return 0;
 }

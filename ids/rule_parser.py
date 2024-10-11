@@ -237,6 +237,7 @@ def load_rules (file_name):
 def flush_rules():
     global processed_rules
     f_tcp = open ('sapo_boi_tcp_rules.perereca', 'wb')
+    f_tcp.write (str.encode(str(len(tcp_port_pair))) + b'\n')
     for port_pair in tcp_port_pair:
         f_tcp.write (port_pair[0] + b'\n')
         f_tcp.write (port_pair [1] + b'\n')
@@ -259,6 +260,7 @@ def flush_rules():
     f_tcp.close()
 
     f_udp = open ('sapo_boi_udp_rules.perereca', 'wb')
+    f_udp.write (str.encode(str(len(udp_port_pair))) + b'\n')
     for port_pair in udp_port_pair:
         f_udp.write (port_pair[0] + b'\n')
         f_udp.write (port_pair [1] + b'\n')
@@ -285,7 +287,7 @@ if __name__ == "__main__":
     processed_rules = 0
     #load_rules('snort3-community.rules')
     # *************************************************MUDAR**********************************************
-    rules_dir = "rules/"
+    rules_dir = "../rules/"
     for file in os.listdir(rules_dir):
         if file.endswith(".rules"):
            load_rules(os.path.join(rules_dir, file))

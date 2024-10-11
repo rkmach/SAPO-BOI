@@ -1,45 +1,39 @@
 #ifndef CORA_H
 #define CORA_H
 
-#include <unistd.h>
-#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 
-#define S 128
-#define IX_SIZE 1000
+#define NUM_ACCEPTABLE_SYMBOLS 256
 #define AC_AUTOMATON_SIZE 10000
+#define MAX_FRAME_SIZE 1500
 
-#define TO_I(c) (c - ' ')
-#define TO_C(i) (i + ' ')
-
-struct node {
-	int p, pc, depth, lnk, out, occ;
-	bool leaf;
-	int nxt[S], go[S], *ix;
-	ssize_t ix_size;
-	char* represents;
+struct ahocora_node {
+        int id;
+        int basic_links[NUM_ACCEPTABLE_SYMBOLS];
+        int suffix_link;
+        int dict_suffix_link;
+        int hit;
+        int rule_sid;
+        int parent;
+        uint8_t suffix;
 };
 
-struct node_array {
-	struct node** array;
-	ssize_t array_size;
+struct ahocora_trie {
+        struct ahocora_node **array;
+        ssize_t size;
+        int num_patterns;
 };
 
-struct vetor_e_tamanho {
-	int* array;
-	ssize_t size;
-};
 
-struct node* init_node();
-void insert_ix(struct node_array* array, int u, int ix);
-void ins(struct node_array* aca, char* ne, int ix);
-void mostra_estados(struct node_array* aca);
-int go(struct node_array* aca, int u, int c);
-int _link(struct node_array* aca, int u);
-int out(struct node_array* aca, int u);
-bool process(struct node_array* aca, char* hay);
-struct node_array* get_ac_automaton();
-void free_automaton(struct node_array* aca);
+struct ahocora_trie* ahocora_create_trie ();
+void ahocora_insert_pattern (struct ahocora_trie *, uint8_t *pattern,
+                int pattern_len, int rule_id);
+int ahocora_search (struct ahocora_trie *trie, uint8_t *input, int size);
+void ahocora_build_suffix_links (struct ahocora_trie *trie);
+void ahocora_build_dict_suffix_links (struct ahocora_trie *trie);
+void ahocora_print_trie (struct ahocora_trie *trie);
 
 #endif
-

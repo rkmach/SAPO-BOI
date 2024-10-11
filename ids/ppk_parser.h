@@ -1,9 +1,10 @@
 #ifndef PPK_PARSER_H
 #define PPK_PARSER_H
 
-#include<stdint.h>
-#include<stdbool.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <errno.h>
+#include "cora.h"
 
 #define PPK_FAST_PAT  1 << 5
 #define PPK_NOCASE  1 << 4
@@ -13,21 +14,22 @@
 #define PPK_WITHIN  1
 #define PPK_BUF_SIZE 4096
 
-#define PPK_STATE_RPORTS 0
-#define PPK_STATE_RNRULES 1
-#define PPK_STATE_RRULES 2 
-#define PPK_STATE_RSID 3
-#define PPK_STATE_RNCONTENTS 4
-#define PPK_STATE_RCONTENTS 5
-#define PPK_STATE_RNBYTES 6
-#define PPK_STATE_RCONTENT 7
-#define PPK_STATE_ROPTIONS 8
+#define PPK_STATE_RNPORTS 0
+#define PPK_STATE_RPORTS 1
+#define PPK_STATE_RNRULES 2
+#define PPK_STATE_RRULES 3 
+#define PPK_STATE_RSID 4
+#define PPK_STATE_RNCONTENTS 5
+#define PPK_STATE_RCONTENTS 6
+#define PPK_STATE_RNBYTES 7
+#define PPK_STATE_RCONTENT 8
+#define PPK_STATE_ROPTIONS 9
 
 #define PPK_LINE_SIZE 1024
 #define PPK_STR_INT_SIZE 1024
 
 struct ppk_content{
-        char* pattern;
+        uint8_t* pattern;
         int size_pattern;
 
         bool fast_pat;
@@ -43,6 +45,7 @@ struct ppk_rule{
         uint32_t sid;
         int num_contents;
         struct ppk_content* contents;  // so por enquanto, depois colocar ponteiro p/ automato
+        struct ahocora_trie *trie;
 };
 
 struct ppk_port_pair{
