@@ -13,6 +13,7 @@
 #define PPK_DISTANCE  1 << 1
 #define PPK_WITHIN  1
 #define PPK_BUF_SIZE 4096
+#define PPK_LAST_PORT 65535
 
 #define PPK_STATE_RNPORTS 0
 #define PPK_STATE_RPORTS 1
@@ -24,6 +25,13 @@
 #define PPK_STATE_RNBYTES 7
 #define PPK_STATE_RCONTENT 8
 #define PPK_STATE_ROPTIONS 9
+
+#define PPK_PSPATE_ANYTHING 0 
+#define PPK_PSTATE_RANGE 1
+
+#define PPK_RANGE -1
+#define PPK_NEG -2
+#define PPK_ARRAY -3
 
 #define PPK_LINE_SIZE 1024
 #define PPK_STR_INT_SIZE 1024
@@ -57,6 +65,8 @@ struct ppk_port_pair{
 
         int num_rules;
         struct ppk_rule* rules;
+
+        struct ahocora_trie *fp_trie;
 };
 
 
