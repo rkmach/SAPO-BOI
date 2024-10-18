@@ -7,6 +7,7 @@
 
 #define MAX_MTU 1520  // MTU 1500 bytes
 
+/*
 SEC("xdp")
 int xdp_inspect_payload(struct xdp_md *ctx)
 {
@@ -18,7 +19,7 @@ int xdp_inspect_payload(struct xdp_md *ctx)
 	struct hdr_cursor nh;
     __u32 rx_queue_index = ctx->rx_queue_index;
 	
-	/* Compute current packet pointer */
+	// Compute current packet pointer 
 
 	if (meta + 1 > data) {
 		return XDP_ABORTED;
@@ -55,7 +56,7 @@ int xdp_inspect_payload(struct xdp_md *ctx)
     for (i = 0; i < MAX_MTU; i++) {
         transition = nh.pos;
         if (transition + 1 > data_end) {
-            /* Reach the last byte of the packet (None fast pattern was found. Drop packet) */
+            // Reach the last byte of the packet (None fast pattern was found. Drop packet) 
             return XDP_DROP;
         }
         map_key.transition = *transition;
@@ -78,7 +79,7 @@ int xdp_inspect_payload(struct xdp_md *ctx)
 SEC("xdp")
 int xdp_ids_func(struct xdp_md *ctx)
 {
-	/*
+
     __u32 k = 0, *v;
     v = bpf_map_lookup_elem(&counter_map, &k);
     if (v) {
@@ -86,11 +87,11 @@ int xdp_ids_func(struct xdp_md *ctx)
         bpf_map_update_elem(&counter_map, &k, v, BPF_ANY);
         bpf_printk("cont = %d\n", *v);
     }
-	*/
+
 
     struct xdp_hints_mark *meta;
     int err;
-    /* Reserve space in-front of data pointer for our meta info */
+    // Reserve space in-front of data pointer for our meta info 
 	err = bpf_xdp_adjust_meta(ctx, -(int)sizeof(*meta));
 
 	if (err)
@@ -99,12 +100,12 @@ int xdp_ids_func(struct xdp_md *ctx)
     void *data = (void *)(long)ctx->data;
 
     meta = (void *)(unsigned long)ctx->data_meta;
-    if (meta + 1 > data) /* Verify meta area is accessible */
+    if (meta + 1 > data) // Verify meta area is accessible 
         return XDP_DROP;
 
-    __u32 action = XDP_PASS; /* Default action */
+    __u32 action = XDP_PASS; // Default action
 
-    /* Parse packet */
+    // Parse packet
     struct hdr_cursor nh;
     int eth_type, ip_type;
     struct ethhdr *eth;
@@ -217,7 +218,7 @@ int xdp_ids_func(struct xdp_md *ctx)
     }
 pg_found:
     // bpf_printk("port_map_value = %d", *port_map_value);
-    /* Only packet with valid TCP/UDP header and a valid port group will reach here */
+    // Only packet with valid TCP/UDP header and a valid port group will reach here 
     
     meta->global_map_index = *port_map_value;
     meta->mark = is_tcp;
@@ -229,5 +230,19 @@ pg_found:
 
 out:
     return action;
+}
+*/
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 65536);
+	__uint(key_size, sizeof(int));
+	__uint(value_size, sizeof(int));
+} tcp_src_port_map SEC(".maps");
+
+SEC("xdp")
+int xdp_ids_func(struct xdp_md *ctx)
+{
+        return XDP_PASS;
 }
 

@@ -125,6 +125,7 @@ static void apply_setsockopt(struct xsk_socket_info *xsk, bool opt_busy_poll,
 }
 */
 
+/*
 void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint32_t len){
     char* begin, *end;
     begin = (char*) (pkt + offset);
@@ -191,7 +192,7 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
         // reserva stock_frames slots no ring fill da UMEM
         ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, stock_frames, &idx_fq);
 
-        /* This should not happen, but just in case */
+        // This should not happen, but just in case
 		while (ret != stock_frames)
 			ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, frames_received, &idx_fq);
 
@@ -224,6 +225,7 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
     // libera os frames recebidos do RX (indica pro kernel que eu já li essas posições)
     xsk_ring_cons__release(&xsk_info->rx, frames_received);
 }
+*/
 
 struct thread_struct {
 	pthread_t* threads;
@@ -255,7 +257,7 @@ void working_thread(void* argument){
 			continue;  // nenhum evento
 		if(args->fds[0].revents & POLLIN){
 			printf("recebi na fila %d\n", args->i_queue);
-			handle_receive_packets(args->xsk_socket);
+			//handle_receive_packets(args->xsk_socket);
 		}
 	}
 }
@@ -292,7 +294,7 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
 	}
 }
 
-
+/*
 static void create_dfa_per_rule(struct rule_t* rule, char**contents, size_t len_contents){
 	rule->dfa = get_ac_automaton(contents, len_contents);
 }
@@ -339,7 +341,7 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
 	sprintf(pin_dir, "/sys/fs/bpf/%s", iface_name);
 	puts(pin_dir);
 
-    /* In this moment, every pattern in the port group has been collected, so it's possible to create dfas */
+    // In this moment, every pattern in the port group has been collected, so it's possible to create dfas 
 	build_automaton(fast_patterns_array, len_fp_arr, &dfa);
 
     // for(int k = 0; k < dfa.entry_number; k++){
@@ -517,7 +519,7 @@ void destroy_port_groups(struct protocol_port_groups_t* protocol_port_group){
 	}
 	free(protocol_port_group->port_groups_array);
 }
-
+*/
 
 int main(int argc, char **argv)
 {
@@ -604,7 +606,7 @@ int main(int argc, char **argv)
 		return EXIT_FAIL_BPF;
 	}
 
-
+/*
 	// haverá um vetor de grupos de portas, contendo os fast patterns de TCP e UDP
 	// representação fiel do mapa global_map
 	int num_port_groups = 0;
@@ -637,7 +639,7 @@ int main(int argc, char **argv)
 	port_groups[0] = port_groups_array.port_groups_array;
 
 
-    /* --- At this moment, every possible DFA has been filled. Go handle XSKS --- */
+    // --- At this moment, every possible DFA has been filled. Go handle XSKS --- 
 
     map = bpf_object__find_map_by_name(bpf_obj, "xsks_map");
     xsks_map_fd = bpf_map__fd(map);
@@ -647,7 +649,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    /* Configure and initialize AF_XDP sockets  (vetor de ponteiros!!) */
+    //Configure and initialize AF_XDP sockets  (vetor de ponteiros!!) 
     int n_queues = cfg.xsk_if_queue;
 	printf("Número de filas: %d\n\n", n_queues);
 
@@ -665,16 +667,15 @@ int main(int argc, char **argv)
         printf("Tudo certo!!\n");
     }
 
-    /* fill xsks map */
+    // fill xsks map 
     enter_xsks_into_map(xsks_map_fd, xsk_sockets, n_queues);
 
 	log_file = fopen("ids.log", "a");
 
-	/* -- XSKS sockets properly configurated. Go wait for packets --*/
-
+	\\ -- XSKS sockets properly configurated. Go wait for packets --
     rx_and_process(&cfg, xsk_sockets, n_queues);
 
-    /* Cleanup */
+    // Cleanup 
 	for (int i_queue = 0; i_queue < n_queues; i_queue++) {
 		xsk_socket__delete(xsk_sockets[i_queue]->xsk);
 		xsk_umem__delete(umems[i_queue]->umem);
@@ -682,6 +683,7 @@ int main(int argc, char **argv)
     free(umems);
     free(xsk_sockets);
     destroy_port_groups(&port_groups_array);
+    */
 
 	fclose(log_file);
 
