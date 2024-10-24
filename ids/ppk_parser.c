@@ -1,4 +1,4 @@
-#include <stdio.h>
+//#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -6,8 +6,15 @@
 #include "ppk_parser.h"
 
 int **tcp_src_ports;
+int tcp_src_idx[65536];
 int **tcp_dst_ports;
-static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int **array) ;
+int tcp_dst_idx[65536];
+
+int **udp_src_ports;
+int udp_src_idx[65536];
+int **udp_dst_ports;
+int udp_dst_idx[65536];
+static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int **array, int* array_idx) ;
 
 
 static inline void PPK_ERR(int err, const uint8_t* func_name){
@@ -140,14 +147,6 @@ static void ppk_parse_bitmap(struct ppk_content* content, int bitmap,
                 }
                 cur_option[idx++] = options[i];
         }
-        /*
-        printf ("content->fast_pat: %d\n", content->fast_pat);
-        printf ("content->nocase: %d\n", content->nocase);
-        printf ("content->depth: %d\n", content->depth);
-        printf ("content->offset: %d\n", content->offset);
-        printf ("content->distance: %d\n", content->distance);
-        printf ("content->within: %d\n", content->within);
-        */
 }
 
 static int ppk_read_contents(int fd, struct ppk_content* content){
@@ -297,17 +296,12 @@ struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size){
         }
 }
 
-static void ppk_add_single_port (struct ahocora_trie *trie, int port, int port_idx, int ** array)
+static void ppk_add_single_port (struct ahocora_trie *trie, int port, int port_idx, int ** array, int* array_idx)
 {
-        for (int i = 0 ; i < 1500 ; i++){
-                if (array[port][i] == 0){
-                        array[port][i] = port_idx;
-                        break;
-                }
-        }
+        array[port][array_idx[port]++] = port_idx;
 }
 
-static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port, int *idx, int neg, int any, int port_idx, int ** array)
+static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port, int *idx, int neg, int any, int port_idx, int ** array, int* array_idx)
 {
         int first;
         int last;
@@ -323,19 +317,19 @@ static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port, int
 
         if (!neg) {
                 for (int i = first ; i <= last ; i++){
-                        ppk_add_single_port (trie, i, port_idx, array);
+                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
                 }
         }
         else {
                 for (int i = 0 ; i < first ; i++)
-                        ppk_add_single_port (trie, i, port_idx, array);
+                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
                 for (int i = last + i ; i <= PPK_LAST_PORT ; i++)
-                        ppk_add_single_port (trie, i, port_idx, array);
+                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
         }
 }
 
 
-static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int *idx, int neg, int port_idx, int ** array)
+static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int *idx, int neg, int port_idx, int ** array, int* array_idx)
 {
         int size = src_port[(*idx)++];
         int cur_port;
@@ -344,11 +338,11 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
                 for (int i = 0 ; i < size ; i++){
                         cur_port = src_port[(*idx)++];
                         if (cur_port > 0)
-                                ppk_add_single_port (trie, *idx, port_idx, array);
+                                ppk_add_single_port (trie, *idx, port_idx, array, array_idx);
                         else if (cur_port == PPK_RANGE)
-                                ppk_handle_port_range (trie, src_port, idx, 0, 0, port_idx, array);
+                                ppk_handle_port_range (trie, src_port, idx, 0, 0, port_idx, array, array_idx);
                         else if (cur_port == PPK_NEG)
-                                ppk_handle_port_neg (trie, src_port, idx, port_idx, array);
+                                ppk_handle_port_neg (trie, src_port, idx, port_idx, array, array_idx);
                 }
 
                 return;
@@ -358,7 +352,7 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
         for (int i = 0 ; i <= PPK_LAST_PORT ; i++){
                 if (count == size){
                         for (; i <= PPK_LAST_PORT ; i++)
-                                ppk_add_single_port (trie, i, port_idx, array);
+                                ppk_add_single_port (trie, i, port_idx, array, array_idx);
                         
                         break;
                 }
@@ -368,7 +362,7 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
                 if (cur_port > 0){
                         if (i < cur_port){
                                 for (; i < cur_port ; i++)
-                                        ppk_add_single_port (trie, i, port_idx, array);
+                                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
                         }
                         continue;
                 }
@@ -376,7 +370,7 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
                         cur_port = src_port[(*idx)++];
                         if (i < cur_port){
                                 for (; i < cur_port ; i++)
-                                        ppk_add_single_port (trie, i, port_idx, array);
+                                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
                         }
                         i =  src_port[(*idx)++];
                 }
@@ -385,112 +379,118 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
         }
 }
 
-static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int ** array) 
+static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int ** array, int* array_idx) 
 {
         int cur_port = src_port[(*idx)++];
 
         if (cur_port > 0){
                 for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
                         if (i != cur_port)
-                                ppk_add_single_port (trie, i, port_idx, array);
+                                ppk_add_single_port (trie, i, port_idx, array, array_idx);
         }
 
         else if (cur_port == PPK_RANGE)
-                ppk_handle_port_range (trie, src_port, idx, 1, 0, port_idx, array);
+                ppk_handle_port_range (trie, src_port, idx, 1, 0, port_idx, array, array_idx);
 
         else if (cur_port == PPK_ARRAY)
-                ppk_handle_port_array (trie, src_port, idx, 1, port_idx, array);
+                ppk_handle_port_array (trie, src_port, idx, 1, port_idx, array, array_idx);
 }
 
-
-
-static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx) 
+void __ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx, int* cur_port_array, int port_array_size, int** array, int* array_idx)
 {
-        int *src_port = port_pair->src_port;
-
-        for (int i = 0 ; i < port_pair->size_src_port ; i++)
+        for (int i = 0 ; i < port_array_size; i++)
         {
-                if (src_port[i] > 0)
-                        ppk_add_single_port (port_pair->fp_trie, src_port[i], port_idx, tcp_src_ports);
-                else if (src_port[i] == PPK_RANGE){
+                if (cur_port_array[i] > 0)
+                        ppk_add_single_port (port_pair->fp_trie, cur_port_array[i], port_idx, array, array_idx);
+                else if (cur_port_array[i] == PPK_RANGE){
                         i++;
-                        ppk_handle_port_range (port_pair->fp_trie, src_port, &i, 0, 0, port_idx, tcp_src_ports);
+                        ppk_handle_port_range (port_pair->fp_trie, cur_port_array, &i, 0, 0, port_idx, array, array_idx);
                         --i;
                 }
-                else if (src_port[i] == 0){
+                else if (cur_port_array[i] == 0){
                         i++;
-                        ppk_handle_port_range (port_pair->fp_trie, src_port, &i, 0, 1, port_idx, tcp_src_ports);
+                        ppk_handle_port_range (port_pair->fp_trie, cur_port_array, &i, 0, 1, port_idx, array, array_idx);
                         --i;
                 }
-                else if (src_port[i] == PPK_NEG){
+                else if (cur_port_array[i] == PPK_NEG){
                         i++;
-                        ppk_handle_port_neg (port_pair->fp_trie, src_port, &i, port_idx, tcp_src_ports);
+                        ppk_handle_port_neg (port_pair->fp_trie, cur_port_array, &i, port_idx, array, array_idx);
                         --i;
                 }
-                else if (src_port[i] == PPK_ARRAY){
+                else if (cur_port_array[i] == PPK_ARRAY){
                         i++;
-                        ppk_handle_port_array (port_pair->fp_trie, src_port, &i, 0, port_idx, tcp_src_ports);
+                        ppk_handle_port_array (port_pair->fp_trie, cur_port_array, &i, 0, port_idx, array, array_idx);
                         --i;
                 }
                 else{
-                        printf ("src_port[%d]: %hhx\n", i, src_port[i]);
-                        PPK_ERR (EINVAL, __func__);
-                }
-
-        }
-        src_port = port_pair->dst_port;
-
-        for (int i = 0 ; i < port_pair->size_dst_port ; i++)
-        {
-                if (src_port[i] > 0)
-                        ppk_add_single_port (port_pair->fp_trie, src_port[i], port_idx, tcp_dst_ports);
-                else if (src_port[i] == PPK_RANGE){
-                        i++;
-                        ppk_handle_port_range (port_pair->fp_trie, src_port, &i, 0, 0, port_idx, tcp_dst_ports);
-                        --i;
-                }
-                else if (src_port[i] == 0){
-                        i++;
-                        ppk_handle_port_range (port_pair->fp_trie, src_port, &i, 0, 1, port_idx, tcp_dst_ports);
-                        --i;
-                }
-                else if (src_port[i] == PPK_NEG){
-                        i++;
-                        ppk_handle_port_neg (port_pair->fp_trie, src_port, &i, port_idx, tcp_dst_ports);
-                        --i;
-                }
-                else if (src_port[i] == PPK_ARRAY){
-                        i++;
-                        ppk_handle_port_array (port_pair->fp_trie, src_port, &i, 0, port_idx, tcp_dst_ports);
-                        --i;
-                }
-                else{
-                        printf ("src_port[%d]: %hhx\n", i, src_port[i]);
+                        printf ("cur_port_array[%d]: %hhx\n", i, cur_port_array[i]);
                         PPK_ERR (EINVAL, __func__);
                 }
 
         }
 
 }
+
+
+
+static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx, int** src_array, int* src_array_idx, int** dst_array, int* dst_array_idx)
+{
+       __ppk_register_fp_trie(port_pair, port_idx, port_pair->src_port, port_pair->size_src_port, src_array, src_array_idx);
+       __ppk_register_fp_trie(port_pair, port_idx, port_pair->dst_port, port_pair->size_dst_port, dst_array, dst_array_idx);
+}
+
+void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs, int size, int** src_array, int* src_array_idx, int** dst_array, int* dst_array_idx)
+{
+        struct ppk_port_pair *cur_port_pair;
+        struct ppk_rule *cur_rule;
+        struct ppk_content *cur_content;
+        for (int i = 0 ; i < size ; i++)
+        {
+                cur_port_pair = port_pairs[i];
+                cur_port_pair->fp_trie = ahocora_create_trie ();
+                for (int j = 0 ; j < cur_port_pair->num_rules ; j++)
+                {
+                        cur_rule = cur_port_pair->rules + j;
+                        for (int k = 0 ; k < cur_rule->num_contents ; k++)
+                        {
+                                cur_content = cur_rule->contents + k;
+                                if (cur_content->fast_pat)
+                                        ahocora_insert_pattern (cur_port_pair->fp_trie,
+                                                        cur_content->pattern,
+                                                        cur_content->size_pattern,
+                                                        cur_rule->sid);
+                                free (cur_content->pattern);
+                        }
+                         
+
+                }
+                ahocora_build_suffix_links (cur_port_pair->fp_trie);
+                ahocora_build_dict_suffix_links (cur_port_pair->fp_trie);
+                ppk_register_fp_trie (cur_port_pair, i, src_array, src_array_idx, dst_array, dst_array_idx);
+        }
+}
+
 
 void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
 {
         struct ppk_port_pair *cur_port_pair;
         struct ppk_rule *cur_rule;
         struct ppk_content *cur_content;
-        for (int i = 0 ; i < size ; i++){
+        for (int i = 1 ; i < size ; i++){ // comecando no 1 nao ve o any,any
+                printf("i = %d\n", i);
                 cur_port_pair = port_pairs[i];
-                cur_port_pair->fp_trie = ahocora_create_trie ();
+                //cur_port_pair->fp_trie = ahocora_create_trie ();
                 for (int j = 0 ; j < cur_port_pair->num_rules ; j++){
                         cur_rule = cur_port_pair->rules + j;
                         cur_rule->trie = ahocora_create_trie();
                         for (int k = 0 ; k < cur_rule->num_contents ; k++) {
-                                /*
+                                
                                 cur_content = cur_rule->contents + k;
                                 ahocora_insert_pattern (cur_rule->trie,
                                                 cur_content->pattern,
                                                 cur_content->size_pattern,
                                                 cur_rule->sid);
+                                /*
                                 if (cur_content->fast_pat)
                                         ahocora_insert_pattern (cur_port_pair->fp_trie,
                                                         cur_content->pattern,
@@ -499,48 +499,71 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
                                 free (cur_content->pattern);
                                 cur_content->pattern = 0;
                                 */
+                                
 
                         }
-                        //ahocora_build_suffix_links (cur_rule->trie);
-                        //ahocora_build_dict_suffix_links (cur_rule->trie);
+                        //puts("a");
+                        ahocora_build_suffix_links (cur_rule->trie);
+                        //puts("b");
+                        ahocora_build_dict_suffix_links (cur_rule->trie);
+                        //puts("c");
 
                 }
-                //ahocora_build_suffix_links (cur_port_pair->fp_trie);
-                //ahocora_build_dict_suffix_links (cur_port_pair->fp_trie);
-                printf ("port idx %d (size %d): ", i, cur_port_pair->size_dst_port);
-                if (cur_port_pair->size_dst_port){
-                        for (int q = 0 ; q < cur_port_pair->size_dst_port ; q++){
-                                printf ("%d ", cur_port_pair->dst_port[q]);
-                        }
-                        puts ("");
-                }
-                ppk_register_fp_trie (cur_port_pair, i);
+                //sleep (0.0001);
         }
 }
 
 
+
+int binary_search (int key, int *arr, int left, int right)
+{
+        // Loop will run till left > right. It means that there
+      // are no elements to consider in the given subarray
+    while (left <= right) {
+
+        // calculating mid point
+        int mid = left + (right - left) / 2;
+
+        // Check if key is present at mid
+        if (arr[mid] == key) {
+            return mid;
+        }
+
+        // If key greater than arr[mid], ignore left half
+        if (arr[mid] < key) {
+            left = mid + 1;
+        }
+
+        // If key is smaller than or equal to arr[mid],
+        // ignore right half
+        else {
+            right = mid - 1;
+        }
+    }
+
+    // If we reach here, then element was not present
+    return -1;
+}
+
 int main(){
-        
-        
-        /*
+
+        int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
+        if (tcp_fd < 0)
+                exit(-1);
+        int tcp_port_pair_size = 0;
+        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size);
+        //printf("tcp size = %d\n", tcp_port_pair_size);
+        close (tcp_fd);
+       
         int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
         if (udp_fd < 0)
                 exit(-1);
         int udp_port_pair_size = 0;
         struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size);
         close (udp_fd);
-        */
-        
 
-        
-        int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
-        if (tcp_fd < 0)
-                exit(-1);
-        int tcp_port_pair_size = 0;
-        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size);
-        close (tcp_fd);
        
-
+        
         tcp_src_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
         for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
         {
@@ -553,10 +576,38 @@ int main(){
                 tcp_dst_ports[i] = malloc (sizeof (int) * 1500);
                 memset (tcp_dst_ports[i], 0, sizeof(int) * 1500);
         }
-        //ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
+
+        udp_src_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
+        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
+        {
+                udp_src_ports[i] = malloc (sizeof (int) * 1500);
+                memset (udp_src_ports[i], 0, sizeof(int) * 1500);
+        }
+        udp_dst_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
+        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
+        {
+                udp_dst_ports[i] = malloc (sizeof (int) * 1500);
+                memset (udp_dst_ports[i], 0, sizeof(int) * 1500);
+        }
+       
         
 
+        /*
+        ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
+        puts ("HAHAHAHA");
+        */
         ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
+        puts ("HAHAHAHA");
+        
+
+        /*
+        ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size, udp_src_ports, udp_src_idx, udp_dst_ports, udp_dst_idx);
+        puts ("primeira parte");
+        getchar ();
+        */
+        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size, tcp_src_ports, tcp_src_idx, tcp_dst_ports, tcp_dst_idx);
+        
+        getchar ();
 
         //char input [30] = {'\x00','\x01','\x00','\x00','\x00','\x00','\x00','\x00','i','s','\x03','b', 'i', 'z', '\x00','\x00','\x01','\x00','\x01'};
         //printf("result = %d\n", ahocora_search(udp_port_pairs[11]->rules[86].trie,input, 19));
@@ -564,6 +615,7 @@ int main(){
         puts ("Vc acha msm q deu certo?");
         puts ("HAHAHAHA");
         
+        /*
         for ( int i = 0 ; i <= PPK_LAST_PORT ; i++){
                 printf ("port %d: ", i);
                 for (int j = 0 ; j < 1500 ; j++)
@@ -592,6 +644,23 @@ int main(){
                 printf ("Difference for port %d: %d\n", i, l2 - l1);
         }
 
+        
+
+        int count = 0;
+        for (int i = 0 ; i < 65536 ; i++) {
+                //printf ("intersection vector [%d]: ", i);
+                for (int j = 0 ; j < tcp_src_idx[i] ; j++) {
+                        int ret = binary_search (tcp_src_ports[i][j], tcp_dst_ports[i], 0, tcp_dst_idx[i]);
+                        if (ret != -1){
+                                tcp_intersection_ports[i][tcp_int_idx[i]++] = tcp_src_ports[i][j];
+                                printf ("%d ", tcp_src_ports[i][j]);
+                                count ++;
+                        }
+                }
+                printf (" SIZE %d\n", count);
+                count = 0;
+        }
+        */
 
         return 0;
 }
