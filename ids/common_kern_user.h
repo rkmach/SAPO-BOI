@@ -5,6 +5,9 @@
 #define __COMMON_KERN_USER_H
 
 #define MAX_AF_SOCKS    64
+
+#define SUSP_MAX_PORTS 65536
+#define SUSP_MAX_LIST_ENTRIES 1500
 #include<stdint.h>
 
 /* Alias for TCP / UDP ports */

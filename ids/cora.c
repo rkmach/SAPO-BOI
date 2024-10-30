@@ -40,8 +40,8 @@ void ahocora_print_trie (struct ahocora_trie *trie)
                 }
                 printf ("----- NODE %d -----\n\n", i);
         }
-        printf ("WTFF\n");
 }
+
 static int ahocora_lookup (struct ahocora_trie *trie, uint8_t *pattern,
                 int size)
 {
@@ -142,6 +142,7 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                 int pattern_size, int rule_sid)
 {
         struct ahocora_node * cur_node = trie->array[0];
+        struct ahocora_node * root = trie->array[0];
         int new_final_state = 0;
         for (int i = 0 ; i < pattern_size ; i++) {
                 uint8_t cur_byte = 0;
