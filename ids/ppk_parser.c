@@ -296,12 +296,15 @@ struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size){
         }
 }
 
-static void ppk_add_single_port (struct ahocora_trie *trie, int port, int port_idx, int ** array, int* array_idx)
+static void ppk_add_single_port (struct ahocora_trie *trie, int port,
+                int port_idx, int ** array, int* array_idx)
 {
         array[port][array_idx[port]++] = port_idx;
 }
 
-static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port, int *idx, int neg, int any, int port_idx, int ** array, int* array_idx)
+static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port,
+                int *idx, int neg, int any, int port_idx, int ** array,
+                int* array_idx)
 {
         int first;
         int last;
@@ -317,14 +320,17 @@ static void ppk_handle_port_range (struct ahocora_trie *trie, int *src_port, int
 
         if (!neg) {
                 for (int i = first ; i <= last ; i++){
-                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
+                        ppk_add_single_port (trie, i, port_idx, array,
+                                        array_idx);
                 }
         }
         else {
                 for (int i = 0 ; i < first ; i++)
-                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
+                        ppk_add_single_port (trie, i, port_idx, array,
+                                        array_idx);
                 for (int i = last + i ; i <= PPK_LAST_PORT ; i++)
-                        ppk_add_single_port (trie, i, port_idx, array, array_idx);
+                        ppk_add_single_port (trie, i, port_idx, array,
+                                        array_idx);
         }
 }
 
@@ -338,11 +344,14 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
                 for (int i = 0 ; i < size ; i++){
                         cur_port = src_port[(*idx)++];
                         if (cur_port > 0)
-                                ppk_add_single_port (trie, *idx, port_idx, array, array_idx);
+                                ppk_add_single_port (trie, *idx, port_idx,
+                                                array, array_idx);
                         else if (cur_port == PPK_RANGE)
-                                ppk_handle_port_range (trie, src_port, idx, 0, 0, port_idx, array, array_idx);
+                                ppk_handle_port_range (trie, src_port, idx, 0,
+                                                0, port_idx, array, array_idx);
                         else if (cur_port == PPK_NEG)
-                                ppk_handle_port_neg (trie, src_port, idx, port_idx, array, array_idx);
+                                ppk_handle_port_neg (trie, src_port, idx,
+                                                port_idx, array, array_idx);
                 }
 
                 return;
@@ -379,51 +388,64 @@ static void ppk_handle_port_array (struct ahocora_trie *trie, int *src_port, int
         }
 }
 
-static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int ** array, int* array_idx) 
+static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port,
+                int *idx, int port_idx, int ** array, int* array_idx) 
 {
         int cur_port = src_port[(*idx)++];
 
         if (cur_port > 0){
                 for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
                         if (i != cur_port)
-                                ppk_add_single_port (trie, i, port_idx, array, array_idx);
+                                ppk_add_single_port (trie, i, port_idx, array,
+                                                array_idx);
         }
 
         else if (cur_port == PPK_RANGE)
-                ppk_handle_port_range (trie, src_port, idx, 1, 0, port_idx, array, array_idx);
+                ppk_handle_port_range (trie, src_port, idx, 1, 0, port_idx,
+                                array, array_idx);
 
         else if (cur_port == PPK_ARRAY)
-                ppk_handle_port_array (trie, src_port, idx, 1, port_idx, array, array_idx);
+                ppk_handle_port_array (trie, src_port, idx, 1, port_idx, array,
+                                array_idx);
 }
 
-void __ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx, int* cur_port_array, int port_array_size, int** array, int* array_idx)
+void __ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx,
+                int* cur_port_array, int port_array_size, int** array,
+                int* array_idx)
 {
         for (int i = 0 ; i < port_array_size; i++)
         {
                 if (cur_port_array[i] > 0)
-                        ppk_add_single_port (port_pair->fp_trie, cur_port_array[i], port_idx, array, array_idx);
+                        ppk_add_single_port (port_pair->fp_trie,
+                                cur_port_array[i], port_idx, array, array_idx);
                 else if (cur_port_array[i] == PPK_RANGE){
                         i++;
-                        ppk_handle_port_range (port_pair->fp_trie, cur_port_array, &i, 0, 0, port_idx, array, array_idx);
+                        ppk_handle_port_range (port_pair->fp_trie,
+                                        cur_port_array, &i, 0, 0, port_idx,
+                                        array, array_idx);
                         --i;
                 }
                 else if (cur_port_array[i] == 0){
                         i++;
-                        ppk_handle_port_range (port_pair->fp_trie, cur_port_array, &i, 0, 1, port_idx, array, array_idx);
+                        ppk_handle_port_range (port_pair->fp_trie,
+                                        cur_port_array, &i, 0, 1, port_idx,
+                                        array, array_idx);
                         --i;
                 }
                 else if (cur_port_array[i] == PPK_NEG){
                         i++;
-                        ppk_handle_port_neg (port_pair->fp_trie, cur_port_array, &i, port_idx, array, array_idx);
+                        ppk_handle_port_neg (port_pair->fp_trie, cur_port_array,
+                                        &i, port_idx, array, array_idx);
                         --i;
                 }
                 else if (cur_port_array[i] == PPK_ARRAY){
                         i++;
-                        ppk_handle_port_array (port_pair->fp_trie, cur_port_array, &i, 0, port_idx, array, array_idx);
+                        ppk_handle_port_array (port_pair->fp_trie,
+                                        cur_port_array, &i, 0, port_idx, array,
+                                        array_idx);
                         --i;
                 }
                 else{
-                        printf ("cur_port_array[%d]: %hhx\n", i, cur_port_array[i]);
                         PPK_ERR (EINVAL, __func__);
                 }
 
@@ -433,67 +455,55 @@ void __ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx, int*
 
 
 
-static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx, int** src_array, int* src_array_idx, int** dst_array, int* dst_array_idx)
+static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx,
+               int** src_array, int* src_array_idx, int** dst_array,
+               int* dst_array_idx)
 {
-        __ppk_register_fp_trie(port_pair, port_idx, port_pair->src_port, port_pair->size_src_port, src_array, src_array_idx);
-        __ppk_register_fp_trie(port_pair, port_idx, port_pair->dst_port, port_pair->size_dst_port, dst_array, dst_array_idx);
+        __ppk_register_fp_trie(port_pair, port_idx, port_pair->src_port,
+                        port_pair->size_src_port, src_array, src_array_idx);
+        __ppk_register_fp_trie(port_pair, port_idx, port_pair->dst_port,
+                        port_pair->size_dst_port, dst_array, dst_array_idx);
 }
 
-void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs, int size, int** src_array, int* src_array_idx, int** dst_array, int* dst_array_idx)
+void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
+                int size, int** src_array, int* src_array_idx, int** dst_array,
+                int* dst_array_idx)
 {
         struct ppk_port_pair *cur_port_pair;
         struct ppk_rule *cur_rule;
         struct ppk_content *cur_content;
         int count = 0;
-        for (int i = 24 ; i < 25 ; i++)
+        for (int i = 0 ; i < size ; i++)
         {
                 cur_port_pair = port_pairs[i];
                 cur_port_pair->fp_trie = ahocora_create_trie ();
-                printf("begin i = %d\n", i);
-                /*
-                if(i == 24){
-                        printf("num rules = %d\n", cur_port_pair->num_rules);
-                        puts("src:");
-                        for(int a = 0; a < cur_port_pair->size_src_port; a++){
-                                printf("%d ", cur_port_pair->src_port[a]);
-                        }
-                        puts("");
-                        puts("dst:");
-                        for(int a = 0; a < cur_port_pair->size_dst_port; a++){
-                                printf("%d ", cur_port_pair->dst_port[a]);
-                        }
-                        puts("");
-                }
-                exit(-1);
-                */
                 for (int j = 0 ; j < cur_port_pair->num_rules ; j++)
                 {
                         cur_rule = cur_port_pair->rules + j;
                         
-                        if(i == 24)
-                                printf("sid = %d\n", cur_rule->sid);
-                        
                         for (int k = 0 ; k < cur_rule->num_contents ; k++)
                         {
                                 cur_content = cur_rule->contents + k;
-                                puts("calling ahocora insert");
                                 if (cur_content->fast_pat){
-                                        puts("DE VDDDDDD!!!");
-                                        ahocora_insert_pattern (cur_port_pair->fp_trie,
-                                                        cur_content->pattern,
-                                                        cur_content->size_pattern,
-                                                        cur_rule->sid);
+                                        ahocora_insert_pattern(
+                                                cur_port_pair->fp_trie,
+                                                cur_content->pattern,
+                                                cur_content->size_pattern,
+                                                cur_rule->sid
+                                        );
                                 }
                                 free (cur_content->pattern);
                         }
 
 
                 }
-                printf("end i = %d\n", i);
                 ahocora_build_suffix_links (cur_port_pair->fp_trie);
                 ahocora_build_dict_suffix_links (cur_port_pair->fp_trie);
 
-                //ppk_register_fp_trie (cur_port_pair, i, src_array, src_array_idx, dst_array, dst_array_idx);
+                ppk_register_fp_trie (cur_port_pair, i, src_array,
+                                src_array_idx, dst_array, dst_array_idx);
+                printf("i = %d --- trie size = %d\n", i, cur_port_pair->fp_trie->size);
+                cur_port_pair->fp_trie->array = realloc(cur_port_pair->fp_trie->array, sizeof(struct ahocora_node*) * cur_port_pair->fp_trie->size);
         }
 }
 
@@ -503,40 +513,23 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
         struct ppk_port_pair *cur_port_pair;
         struct ppk_rule *cur_rule;
         struct ppk_content *cur_content;
-        for (int i = 1 ; i < size ; i++){ // comecando no 1 nao ve o any,any
+        for (int i = 0 ; i < size ; i++){
                 printf("i = %d\n", i);
                 cur_port_pair = port_pairs[i];
-                //cur_port_pair->fp_trie = ahocora_create_trie ();
                 for (int j = 0 ; j < cur_port_pair->num_rules ; j++){
                         cur_rule = cur_port_pair->rules + j;
                         cur_rule->trie = ahocora_create_trie();
                         for (int k = 0 ; k < cur_rule->num_contents ; k++) {
-
                                 cur_content = cur_rule->contents + k;
                                 ahocora_insert_pattern (cur_rule->trie,
                                                 cur_content->pattern,
                                                 cur_content->size_pattern,
                                                 cur_rule->sid);
-                                /*
-                                   if (cur_content->fast_pat)
-                                   ahocora_insert_pattern (cur_port_pair->fp_trie,
-                                   cur_content->pattern,
-                                   cur_content->size_pattern,
-                                   cur_rule->sid);
-                                   free (cur_content->pattern);
-                                   cur_content->pattern = 0;
-                                   */
-
-
                         }
-                        //puts("a");
                         ahocora_build_suffix_links (cur_rule->trie);
-                        //puts("b");
                         ahocora_build_dict_suffix_links (cur_rule->trie);
-                        //puts("c");
 
                 }
-                //sleep (0.0001);
         }
 }
 
@@ -618,38 +611,18 @@ int main(){
         }
 
 
-        /*
+        
         ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
-        puts ("HAHAHAHA");
         ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
-        puts ("HAHAHAHA");
-        */
 
-
-
-        //ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size, udp_src_ports, udp_src_idx, udp_dst_ports, udp_dst_idx);
-        //puts ("primeira parte");
-        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size, tcp_src_ports, tcp_src_idx, tcp_dst_ports, tcp_dst_idx);
+        ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size,
+                        udp_src_ports, udp_src_idx, udp_dst_ports, udp_dst_idx);
+        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size,
+                        tcp_src_ports, tcp_src_idx, tcp_dst_ports, tcp_dst_idx);
 
 
         //char input [30] = {'\x00','\x01','\x00','\x00','\x00','\x00','\x00','\x00','i','s','\x03','b', 'i', 'z', '\x00','\x00','\x01','\x00','\x01'};
         //printf("result = %d\n", ahocora_search(udp_port_pairs[11]->rules[86].trie,input, 19));
-
-
-        /*
-        struct ahocora_trie* t = ahocora_create_trie();
-        for(int i = 0; i < 30000; i++){
-                ahocora_insert_pattern(t, "csrftoken=11454bd782bb41db213d415e10a0fb3c", 42, i);
-        }
-
-        puts ("Vc acha msm q deu certo?");
-        puts ("HAHAHAHA");
-        ahocora_insert_pattern(t, "decrypt($_REQUEST['dwn']);", 48, 57284);
-        /*
-        ahocora_insert_pattern(t, "alert('Please install new Font Manager to your Chrome!');", 57, 48741);
-        ahocora_insert_pattern(t, "alert('Please install new Font Manager to your Chrome!');", 57, 48741);
-        ahocora_print_trie(t);
-        */
 
         /*
            for ( int i = 0 ; i <= PPK_LAST_PORT ; i++){

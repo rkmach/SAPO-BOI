@@ -143,21 +143,11 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
 {
         struct ahocora_node * cur_node = trie->array[0];
         struct ahocora_node * root = trie->array[0];
-        printf("rule_sid = %d\n", rule_sid);
-        // a boa é 56889, a ruim eh 57284
-        if(rule_sid == 57284){
-                ahocora_print_trie(trie);
-                exit(-1); 
-        }
-        //printf("sid = %d -------  pattern = %s\n", rule_sid, pattern);
-        //printf("root[99] = %d\n", root->basic_links[99]);
         int new_final_state = 0;
         for (int i = 0 ; i < pattern_size ; i++) {
                 uint8_t cur_byte = 0;
                 cur_byte = pattern[i];
 
-                //if(rule_sid == 57286 || rule_sid == 57285)
-                //printf("root[%d] = %d\n", cur_byte, root->basic_links[cur_byte]);
                 if(cur_node->basic_links[cur_byte] != -1){
                         cur_node =
                                 trie->array[cur_node->basic_links[cur_byte]];
@@ -170,7 +160,6 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                 new_node->suffix = cur_byte;
                 new_node->parent = cur_node->id;
                 new_node->id = trie->size;
-                //printf("new node id = %d\n", new_node->id);
 
                 trie->array[trie->size++] = new_node;
 
