@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 #define NUM_ACCEPTABLE_SYMBOLS 256
-#define AC_AUTOMATON_SIZE 200000
+#define AC_AUTOMATON_SIZE 220000
 #define MAX_FRAME_SIZE 1500
 
 struct ahocora_node {

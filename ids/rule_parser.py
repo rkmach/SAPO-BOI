@@ -265,12 +265,36 @@ def flush_rules():
                         f_tcp.write (sid + b'\n')  # escreve signature id da regra
                         f_tcp.write (b'%d\n'  % len(rule[sid]))  # escreve quantos contents têm na regra
 
+                        largest_content_size = 0
+                        largest_content_index = 0
+                        cur_index = 0
+                        fp_set = 0
+                        options_tuple_list = []
+                        for content in rule[sid]:
+                                if largest_content_size < len(content[0]):
+                                        largest_content_size = len (content[0])
+                                        largest_content_index = cur_index
+                                options_tuple_list.append(parse_content_options (content[1]))
+                                if options_tuple_list[cur_index][0] & (1<<5):
+                                    fp_set = 1
+                                cur_index += 1
+
+                        
+
+                        cur_index = 0
                         for content in rule[sid]:
                                 f_tcp.write (b'%d\n' % len(content[0]))  # escreve o tamanho do content
                                 f_tcp.write (content[0] + b'\n')  # escreve o content
-                                options_tuple = parse_content_options (content[1])
-                                f_tcp.write (b'%d' % options_tuple[0] + b'\n') # escreve bitmap de modificadores
-                                f_tcp.write (options_tuple[1] + b'\n') # escreve as opções dos modificadores
+                                cur_options_tuple = options_tuple_list[cur_index]
+                                if fp_set == 0 and cur_index == largest_content_index:
+                                        f_tcp.write (b'%d' % (cur_options_tuple[0] | (1<<5)) + b'\n') # escreve bitmap de modificadores
+                                        
+                                else:
+                                        f_tcp.write (b'%d' % cur_options_tuple[0] + b'\n') # escreve bitmap de modificadores
+                                f_tcp.write (cur_options_tuple[1] + b'\n') # escreve as opções dos modificadores
+                                cur_index += 1
+
+
         f_tcp.close()
 
         f_udp = open ('sapo_boi_udp_rules.perereca', 'wb')
@@ -279,21 +303,45 @@ def flush_rules():
                 f_udp.write (port_pair[0] + b'\n')
                 f_udp.write (port_pair [1] + b'\n')
                 
-                f_udp.write (b'%d\n' % len(udp_port_pair[port_pair]))
+                f_udp.write (b'%d\n' % len(udp_port_pair[port_pair]))  # escreve a quantidade de regras do par 
            
                 current_rule_set = udp_port_pair[port_pair]
                 for rule in current_rule_set:
                         processed_rules += 1
                         sid = list(rule.keys())[0]
-                        f_udp.write (sid + b'\n')
-                        f_udp.write (b'%d\n'  % len(rule[sid]))
+                        f_udp.write (sid + b'\n')  # escreve signature id da regra
+                        f_udp.write (b'%d\n'  % len(rule[sid]))  # escreve quantos contents têm na regra
 
+                        largest_content_size = 0
+                        largest_content_index = 0
+                        cur_index = 0
+                        fp_set = 0
+                        options_tuple_list = []
                         for content in rule[sid]:
-                                f_udp.write (b'%d\n' % len(content[0]))
-                                f_udp.write (content[0] + b'\n')
-                                options_tuple = parse_content_options (content[1])
-                                f_udp.write (b'%d' % options_tuple[0] + b'\n')
-                                f_udp.write (options_tuple[1] + b'\n')
+                                if largest_content_size < len(content[0]):
+                                        largest_content_size = len (content[0])
+                                        largest_content_index = cur_index
+                                options_tuple_list.append(parse_content_options (content[1]))
+                                if options_tuple_list[cur_index][0] & (1<<5):
+                                    fp_set = 1
+                                cur_index += 1
+
+                        
+
+                        cur_index = 0
+                        for content in rule[sid]:
+                                f_udp.write (b'%d\n' % len(content[0]))  # escreve o tamanho do content
+                                f_udp.write (content[0] + b'\n')  # escreve o content
+                                cur_options_tuple = options_tuple_list[cur_index]
+                                if fp_set == 0 and cur_index == largest_content_index:
+                                        f_udp.write (b'%d' % (cur_options_tuple[0] | (1<<5)) + b'\n') # escreve bitmap de modificadores
+                                        
+                                else:
+                                        f_udp.write (b'%d' % cur_options_tuple[0] + b'\n') # escreve bitmap de modificadores
+                                f_udp.write (cur_options_tuple[1] + b'\n') # escreve as opções dos modificadores
+                                cur_index += 1
+
+
         f_udp.close()
 
 
