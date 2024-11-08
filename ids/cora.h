@@ -27,6 +27,11 @@ struct ahocora_trie {
         int num_patterns;
 };
 
+struct ahocora_static_trie {
+        struct ahocora_node *array;
+        int size;
+        int num_patterns;
+};
 
 struct ahocora_trie* ahocora_create_trie ();
 void ahocora_insert_pattern (struct ahocora_trie *, uint8_t *pattern,

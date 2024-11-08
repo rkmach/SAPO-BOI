@@ -34,9 +34,11 @@ void ahocora_print_trie (struct ahocora_trie *trie)
 
                 printf ("basic_links: \n");
                 for (int j = 0 ; j < NUM_ACCEPTABLE_SYMBOLS ; j ++){
-                        if (cur_node->basic_links[j] != -1)
+                        if (cur_node->basic_links[j] != -1){
                                 printf ("\tbasic_link[%hhx(%c)]: %d\n", j, j,
                                                 cur_node->basic_links[j]);
+                                printf("j = %d\n", j);
+                        }
                 }
                 printf ("----- NODE %d -----\n\n", i);
         }
