@@ -27,16 +27,6 @@
 #include <linux/udp.h>
 #include <linux/socket.h>
 #include <sys/syscall.h>
-
-/*
-#ifndef SO_PREFER_BUSY_POLL
-#define SO_PREFER_BUSY_POLL     69
-#endif
-#ifndef SO_BUSY_POLL_BUDGET
-#define SO_BUSY_POLL_BUDGET     70
-#endif
-*/
-
 #include <bpf/btf.h> /* provided by libbpf */
 #include "common_params.h"
 #include "common_user_bpf_xdp.h"
@@ -88,107 +78,103 @@ struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
 
-/*
-   void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint32_t len){
-   char* begin, *end;
-   begin = (char*) (pkt + offset);
-   end = (char*) (pkt + len);
-   if(!begin || len <= offset)
-   return;
+void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint32_t len){
+        char* begin, *end;
+        begin = (char*) (pkt + offset);
+        end = (char*) (pkt + len);
+        if(!begin || len <= offset)
+                return;
 
-   char payload[2048];
-   memmove(payload, begin, end-begin);
-//printf("%s\n", payload);
+        char payload[2048];
+        memmove(payload, begin, end-begin);
+        //printf("%s\n", payload);
 
-if(process(rule->dfa, payload)){
-printf("aaaaaaaa\n\n");
-fprintf(log_file, "(Com contents) Casou com a regra de sid %d!!!!!\n", rule->sid);
-return;
+        if(process(rule->dfa, payload)){
+                printf("aaaaaaaa\n\n");
+                fprintf(log_file, "(Com contents) Casou com a regra de sid %d!!!!!\n", rule->sid);
+                return;
+        }
 }
-}
 
-// lógica para receber as info de metadado
-// e pegar o autômato correto.
 static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
-uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
+        uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
 
-int offset;
-uint32_t global_map_index;
-int16_t rule_index;
-struct rule_t* rule;
-struct port_group_t** this_port_groups;
-struct port_group_t* specific_pg;
+        int offset;
+        uint32_t global_map_index;
+        int16_t rule_index;
+        struct rule_t* rule;
+        struct port_group_t** this_port_groups;
+        struct port_group_t* specific_pg;
 
-offset = is_tcp(pkt, &xdp_hints_mark, &global_map_index, &rule_index) ? 54 : 42;
-this_port_groups = offset == 42 ? port_groups[0] : port_groups[1];
+        offset = is_tcp(pkt, &xdp_hints_mark, &global_map_index, &rule_index) ? 54 : 42;
+        this_port_groups = offset == 42 ? port_groups[0] : port_groups[1];
 
-specific_pg = this_port_groups[global_map_index];
-rule = specific_pg->rules[rule_index];
-// se a regra não tem nenhum content, já casou!!
-if(rule->n_contents == 0){
-fprintf(log_file, "(Só o FP) Casou com a regra de sid %d!!!!!\n", rule->sid);
-return;
-}
-find_remaining_contents(rule, pkt, offset, len);
+        specific_pg = this_port_groups[global_map_index];
+        rule = specific_pg->rules[rule_index];
+        // se a regra não tem nenhum content, já casou!!
+        if(rule->n_contents == 0){
+                fprintf(log_file, "(Só o FP) Casou com a regra de sid %d!!!!!\n", rule->sid);
+                return;
+        }
+        find_remaining_contents(rule, pkt, offset, len);
 }
 
 void handle_receive_packets(struct xsk_socket_info* xsk_info){
-uint32_t idx_rx = 0;
-uint32_t idx_fq = 0;
-int ret;
-unsigned int frames_received, stock_frames;
+        uint32_t idx_rx = 0;
+        uint32_t idx_fq = 0;
+        int ret;
+        unsigned int frames_received, stock_frames;
 
-//recvfrom(xsk_socket__fd(xsk_info->xsk), NULL, 0, MSG_DONTWAIT, NULL, NULL);
+        //recvfrom(xsk_socket__fd(xsk_info->xsk), NULL, 0, MSG_DONTWAIT, NULL, NULL);
 
-// ver se no RX tem alguma coisa
-frames_received = xsk_ring_cons__peek(&xsk_info->rx, RX_BATCH_SIZE, &idx_rx);  // prenche a var idx_rx
-                                                                               // se não recebeu nada, volta pro loop de pool
-                                                                               if(!frames_received)
-                                                                               return;
+        // ver se no RX tem alguma coisa
+        frames_received = xsk_ring_cons__peek(&xsk_info->rx, RX_BATCH_SIZE, &idx_rx);  // prenche a var idx_rx
+                                                                                       // se não recebeu nada, volta pro loop de pool
+        if(!frames_received)
+                return;
 
-// se chegou aqui, recebi pelo menos um pacote nesse socket
+        // se chegou aqui, recebi pelo menos um pacote nesse socket
 
-// stock frames é o número de frames recebidos!
-stock_frames = xsk_prod_nb_free(&xsk_info->umem->fq, xsk_info->umem_frame_free);
+        // stock frames é o número de frames recebidos!
+        stock_frames = xsk_prod_nb_free(&xsk_info->umem->fq, xsk_info->umem_frame_free);
 
-if(stock_frames > 0){
-// reserva stock_frames slots no ring fill da UMEM
-ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, stock_frames, &idx_fq);
+        if(stock_frames > 0){
+                // reserva stock_frames slots no ring fill da UMEM
+                ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, stock_frames, &idx_fq);
 
-// This should not happen, but just in case
-while (ret != stock_frames)
-ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, frames_received, &idx_fq);
+                // This should not happen, but just in case
+                while (ret != stock_frames)
+                        ret = xsk_ring_prod__reserve(&xsk_info->umem->fq, frames_received, &idx_fq);
 
-for(int i = 0; i < stock_frames; i++){
-        *xsk_ring_prod__fill_addr(&xsk_info->umem->fq, idx_fq++) = xsk_alloc_umem_frame(xsk_info);
+                for(int i = 0; i < stock_frames; i++){
+                        *xsk_ring_prod__fill_addr(&xsk_info->umem->fq, idx_fq++) = xsk_alloc_umem_frame(xsk_info);
+                }
+                xsk_ring_prod__submit(&xsk_info->umem->fq, stock_frames);
+        }
+
+        // só agora que vou tratar os pacotes recebidos (!!!!!!!!!)
+
+        uint64_t addr;
+        uint32_t len;
+
+        for(int i = 0; i < frames_received; i++){
+                // lê o descritor armazenado em idx_rx
+                addr = xsk_ring_cons__rx_desc(&xsk_info->rx, idx_rx)->addr;
+                len = xsk_ring_cons__rx_desc(&xsk_info->rx, idx_rx)->len;
+                idx_rx++;
+
+                // função que termina de verificar om pacote (AAAAAAAAAAAAAAAAAAAAAA)
+                // process_packet(xsk_info, addr, len);
+                printf("pacote len = %d\n", len);
+                process_packet(xsk_info, addr, len);
+
+                // adiciona o endereço à lista de endereços disponíveis do fill ring da UMEM
+                xsk_free_umem_frame(xsk_info, addr);
+        }
+
+        // libera os frames recebidos do RX (indica pro kernel que eu já li essas posições)
+        xsk_ring_cons__release(&xsk_info->rx, frames_received);
 }
-xsk_ring_prod__submit(&xsk_info->umem->fq, stock_frames);
-}
-
-// só agora que vou tratar os pacotes recebidos (!!!!!!!!!)
-
-uint64_t addr;
-uint32_t len;
-
-for(int i = 0; i < frames_received; i++){
-        // lê o descritor armazenado em idx_rx
-        addr = xsk_ring_cons__rx_desc(&xsk_info->rx, idx_rx)->addr;
-        len = xsk_ring_cons__rx_desc(&xsk_info->rx, idx_rx)->len;
-        idx_rx++;
-
-        // função que termina de verificar om pacote (AAAAAAAAAAAAAAAAAAAAAA)
-        // process_packet(xsk_info, addr, len);
-        printf("pacote len = %d\n", len);
-        process_packet(xsk_info, addr, len);
-
-        // adiciona o endereço à lista de endereços disponíveis do fill ring da UMEM
-        xsk_free_umem_frame(xsk_info, addr);
-}
-
-// libera os frames recebidos do RX (indica pro kernel que eu já li essas posições)
-xsk_ring_cons__release(&xsk_info->rx, frames_received);
-}
-*/
 
 struct thread_struct {
         pthread_t* threads;
@@ -257,91 +243,90 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
         }
 }
 
-/*
-   static void create_dfa_per_rule(struct rule_t* rule, char**contents, size_t len_contents){
-   rule->dfa = get_ac_automaton(contents, len_contents);
-   }
-
-   static int build_map(int map_fd, struct automaton *dfa){
-   struct automaton_map_key map_key;
-   int cpus = libbpf_num_possible_cpus();
-   struct automaton_map_update_value map_values[cpus];
-   struct automaton_transition *map_entries = dfa->entries;
-
-   map_key.padding = 0;
-   memset(map_values, 0, sizeof(map_values));
-
-   for (int i = 0; i < dfa->size; i++) {
-   map_key.state = map_entries[i].key_state;
-   map_key.transition = map_entries[i].key_transition;
-   for (int j = 0; j < cpus; j++) {
-   map_values[j].value.state = map_entries[i].value_state;
-   map_values[j].value.leaf = map_entries[i].value_leaf;
-   map_values[j].value.fp__rule_index = map_entries[i].fp__rule_index;
-   }
-   if (bpf_map_update_elem(map_fd, &map_key, map_values, 0) < 0) {
-   printf("Não foi possivel criar um dos mapa automatos. err(%d):%s\n", errno, strerror(errno));
-   return -1;
-   } 
-   }
-   return 0;
-   }
-
-   void check_end_line(char* token){
-   size_t len = strcspn(token, "\n");
-   if(len == strlen(token))
-   return;
-   token[len] = '\0';
-   }
-
-   int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t src, uint16_t dst,
-   struct fast_p* fast_patterns_array, size_t len_fp_arr)
-   {
-   char map_name[24];
-   struct automaton dfa;
-
-   char pin_dir[32];
-   sprintf(pin_dir, "/sys/fs/bpf/%s", iface_name);
-   puts(pin_dir);
-
-// In this moment, every pattern in the port group has been collected, so it's possible to create dfas 
-build_automaton(fast_patterns_array, len_fp_arr, &dfa);
-
-// for(int k = 0; k < dfa.entry_number; k++){
-//     printf("entries[%d]:  (%d, %c)  (%d, %d, %d)\n", k, dfa.entries[k].key_state, dfa.entries[k].key_unit, 
-// 		dfa.entries[k].value_state, dfa.entries[k].value_flag, dfa.entries[k].fp__rule_index);
-// }
-
-struct port_map_key key;
-key.src_port = src;
-key.dst_port = dst;
-
-// no mapa de portas, cria a chave com base nas duas portas, o valor é o índice no mapa global
-if (bpf_map_update_elem(port_map_fd, &key, index, BPF_ANY) < 0) {
-fprintf(stderr,
-"ERROR: Failed to update bpf map file: err(%d):%s\n",
-errno, strerror(errno));
-return -1;
+static void create_dfa_per_rule(struct rule_t* rule, char**contents, size_t len_contents){
+        rule->dfa = get_ac_automaton(contents, len_contents);
 }
 
-// pega o mapa correto e adiciona o DFA recém criado
-sprintf(map_name, "ids_map%d", *index);
-printf("\nColocando esse automato no mapa %s  (%d, %d)\n", map_name, src, dst);
-int ids_map_fd = open_bpf_map_file(pin_dir, map_name, NULL);
-if (ids_map_fd < 0) {
-        fprintf(stderr,
-                        "ERROR: Failed to open bpf ids map: err(%d):%s\n",
-                        errno, strerror(errno));
-        return -1;
+static int build_map(int map_fd, struct automaton *dfa){
+        struct automaton_map_key map_key;
+        int cpus = libbpf_num_possible_cpus();
+        struct automaton_map_update_value map_values[cpus];
+        struct automaton_transition *map_entries = dfa->entries;
+
+        map_key.padding = 0;
+        memset(map_values, 0, sizeof(map_values));
+
+        for (int i = 0; i < dfa->size; i++) {
+                map_key.state = map_entries[i].key_state;
+                map_key.transition = map_entries[i].key_transition;
+                for (int j = 0; j < cpus; j++) {
+                        map_values[j].value.state = map_entries[i].value_state;
+                        map_values[j].value.leaf = map_entries[i].value_leaf;
+                        map_values[j].value.fp__rule_index = map_entries[i].fp__rule_index;
+                }
+                if (bpf_map_update_elem(map_fd, &map_key, map_values, 0) < 0) {
+                        printf("Não foi possivel criar um dos mapa automatos. err(%d):%s\n", errno, strerror(errno));
+                        return -1;
+                } 
+        }
+        return 0;
 }
-if (build_map(ids_map_fd, &dfa) < 0) {
-        fprintf(stderr,
-                        "ERROR: Failed to put dfa on ids map: err(%d):%s\n",
-                        errno, strerror(errno));
-        return -1;
+
+void check_end_line(char* token){
+        size_t len = strcspn(token, "\n");
+        if(len == strlen(token))
+                return;
+        token[len] = '\0';
 }
-free(dfa.entries);
-return 0;
+
+int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t src, uint16_t dst,
+                struct fast_p* fast_patterns_array, size_t len_fp_arr)
+{
+        char map_name[24];
+        struct automaton dfa;
+
+        char pin_dir[32];
+        sprintf(pin_dir, "/sys/fs/bpf/%s", iface_name);
+        puts(pin_dir);
+
+        // In this moment, every pattern in the port group has been collected, so it's possible to create dfas 
+        build_automaton(fast_patterns_array, len_fp_arr, &dfa);
+
+        // for(int k = 0; k < dfa.entry_number; k++){
+        //     printf("entries[%d]:  (%d, %c)  (%d, %d, %d)\n", k, dfa.entries[k].key_state, dfa.entries[k].key_unit, 
+        // 		dfa.entries[k].value_state, dfa.entries[k].value_flag, dfa.entries[k].fp__rule_index);
+        // }
+
+        struct port_map_key key;
+        key.src_port = src;
+        key.dst_port = dst;
+
+        // no mapa de portas, cria a chave com base nas duas portas, o valor é o índice no mapa global
+        if (bpf_map_update_elem(port_map_fd, &key, index, BPF_ANY) < 0) {
+                fprintf(stderr,
+                                "ERROR: Failed to update bpf map file: err(%d):%s\n",
+                                errno, strerror(errno));
+                return -1;
+        }
+
+        // pega o mapa correto e adiciona o DFA recém criado
+        sprintf(map_name, "ids_map%d", *index);
+        printf("\nColocando esse automato no mapa %s  (%d, %d)\n", map_name, src, dst);
+        int ids_map_fd = open_bpf_map_file(pin_dir, map_name, NULL);
+        if (ids_map_fd < 0) {
+                fprintf(stderr,
+                                "ERROR: Failed to open bpf ids map: err(%d):%s\n",
+                                errno, strerror(errno));
+                return -1;
+        }
+        if (build_map(ids_map_fd, &dfa) < 0) {
+                fprintf(stderr,
+                                "ERROR: Failed to put dfa on ids map: err(%d):%s\n",
+                                errno, strerror(errno));
+                return -1;
+        }
+        free(dfa.entries);
+        return 0;
 }
 
 // criar um port_group para cada linha do arquivo
@@ -482,7 +467,6 @@ void destroy_port_groups(struct protocol_port_groups_t* protocol_port_group){
         }
         free(protocol_port_group->port_groups_array);
 }
-*/
 
 int main(int argc, char **argv)
 {
@@ -642,18 +626,19 @@ int main(int argc, char **argv)
         for (int i_queue = 0; i_queue < n_queues; i_queue++) {
         xsk_socket__delete(xsk_sockets[i_queue]->xsk);
         xsk_umem__delete(umems[i_queue]->umem);
+        }
+        free(umems);
+        free(xsk_sockets);
+        destroy_port_groups(&port_groups_array);
+        */
+
+        fclose(log_file);
+
+        xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
+        bpf_object__close(bpf_obj);
+
+        free(thread_set.threads);	
+        xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+        return 0;
 }
-free(umems);
-free(xsk_sockets);
-destroy_port_groups(&port_groups_array);
-*/
 
-fclose(log_file);
-
-xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
-bpf_object__close(bpf_obj);
-
-free(thread_set.threads);	
-xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
-return 0;
-}
