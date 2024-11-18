@@ -25,6 +25,7 @@
 #define PPK_STATE_RNBYTES 7
 #define PPK_STATE_RCONTENT 8
 #define PPK_STATE_ROPTIONS 9
+#define PPK_STATE_RRULEINDEX 10
 
 #define PPK_PSPATE_ANYTHING 0 
 #define PPK_PSTATE_RANGE 1
@@ -64,7 +65,7 @@ struct ppk_port_pair{
 	int size_dst_port;
 
         int num_rules;
-        struct ppk_rule* rules;
+        struct ppk_rule** rules;
 
         struct ahocora_trie *fp_trie;
 };
