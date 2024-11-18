@@ -37,12 +37,33 @@ int main ()
         }
 
         struct bpf_object *bpf_obj = xdp_program__bpf_obj (prog);
-        int map_fd = bpf_object__find_map_fd_by_name (bpf_obj, "james_map");
+        int map_fd = bpf_object__find_map_fd_by_name (bpf_obj, "outer_map");
         if (map_fd < 0) {
                 printf ("bpf_object__find_map_fd_by_name error");
                 return map_fd;
         }
 
+        
+        int new_map_fd = bpf_map_create (BPF_MAP_TYPE_ARRAY, "inner_map_name", sizeof(__u32), sizeof(__u32), 1000, 0);
+        printf ("new_map_fd: %d\n", new_map_fd);
+
+        
+        int value = 8;
+
+        int index = 0;
+        bpf_map_update_elem (new_map_fd, &index, &value, BPF_ANY);
+        if (new_map_fd < 0){
+                printf ("deu merda aqui ta?");
+                exit (1);
+        }
+        index = 0;
+        ret = bpf_map_update_elem (map_fd, &index, &new_map_fd, BPF_ANY);
+        
+        printf ("ret: %lld\n", ret);
+
+
+
+        /*
         int map_value_ptr;
         int key = 0;
         sleep (5);
@@ -64,6 +85,7 @@ int main ()
         
         printf ("done %d", getpid());
         getchar();
+        */
         return 0;
 
 }

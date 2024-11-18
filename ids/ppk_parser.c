@@ -502,7 +502,7 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
 
                 ppk_register_fp_trie (cur_port_pair, i, src_array,
                                 src_array_idx, dst_array, dst_array_idx);
-                printf("i = %d --- trie size = %d\n", i, cur_port_pair->fp_trie->size);
+                //printf("i = %d --- trie size = %d\n", i, cur_port_pair->fp_trie->size);
                 cur_port_pair->fp_trie->array = realloc(cur_port_pair->fp_trie->array, sizeof(struct ahocora_node*) * cur_port_pair->fp_trie->size);
         }
 }
@@ -612,14 +612,44 @@ int main(){
 
 
         
+        /*
         ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
         ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
+        */
 
         ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size,
                         udp_src_ports, udp_src_idx, udp_dst_ports, udp_dst_idx);
         ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size,
                         tcp_src_ports, tcp_src_idx, tcp_dst_ports, tcp_dst_idx);
 
+        int s = 0;
+        for (int i = 0 ; i < 65536 ; i++)
+        {
+                if (tcp_src_idx[i] > s)
+                        s = tcp_src_idx [i];
+        }
+        printf ("big: %d\n", s);
+        s = 0;
+        for (int i = 0 ; i < 65536 ; i++)
+        {
+                if (tcp_dst_idx[i] > s)
+                        s = tcp_dst_idx [i];
+        }
+        printf ("big: %d\n", s);
+        s = 0;
+        for (int i = 0 ; i < 65536 ; i++)
+        {
+                if (udp_src_idx[i] > s)
+                        s = udp_src_idx [i];
+        }
+        printf ("big: %d\n", s);
+        s = 0;
+        for (int i = 0 ; i < 65536 ; i++)
+        {
+                if (udp_dst_idx[i] > s)
+                        s = udp_dst_idx [i];
+        }
+        printf ("big: %d\n", s);
 
         //char input [30] = {'\x00','\x01','\x00','\x00','\x00','\x00','\x00','\x00','i','s','\x03','b', 'i', 'z', '\x00','\x00','\x01','\x00','\x01'};
         //printf("result = %d\n", ahocora_search(udp_port_pairs[11]->rules[86].trie,input, 19));

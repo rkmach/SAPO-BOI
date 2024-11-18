@@ -5,9 +5,133 @@
 #include "common_kern_user.h"
 #include "maps.h"
 
+#define N_PORT_PAIRS 1500
+#define N_MAX_LINKS 487146
+#define N_MAX_NODES 195322
+#define N_PORT_SIZE 118
+#define N_PORTS 65536
+#define N_MAX_PORT_LIST 983
+//#define N_UDP_PORT_SIZE 70
+
 #define MAX_MTU 1520  // MTU 1500 bytes
+struct link_key {
+        int cur_state;
+        uint8_t cur_byte;
+};
+struct port_pair {
+        int src_port[N_PORT_SIZE];
+        int src_port_size;
+
+        int dst_port[N_PORT_SIZE];
+        int dst_port_size;
+};
+
+struct basic_link_entry{
+        int new_state;
+        int sid;
+};
+
+struct suffix_link_entry {
+        int next_state;
+        int sid;
+};
+
+
+struct dict_suffix_links {
+        __uint (type, BPF_MAP_TYPE_HASH);
+        __uint (max_entries, N_MAX_NODES);
+        __type (key, int);
+        __type (value, int);
+        __uint(map_flags, BPF_F_NO_PREALLOC);
+};
+
+struct suffix_link_table {
+        __uint (type, BPF_MAP_TYPE_HASH);
+        __uint (max_entries, N_MAX_NODES);
+        __type (key, int);
+        __type (value, struct suffix_link_entry);
+        __uint(map_flags, BPF_F_NO_PREALLOC);
+};
+
+struct basic_link_table {
+        __uint (type, BPF_MAP_TYPE_HASH);
+        __uint (max_entries, N_MAX_LINKS);
+        __type (key, struct link_key);
+        __type (value, struct basic_link_entry);
+        __uint(map_flags, BPF_F_NO_PREALLOC);
+};
+
+struct {
+        __uint (type, BPF_MAP_TYPE_HASH_OF_MAPS);
+        __uint (max_entries, N_PORT_PAIRS);
+        __type (key, struct port_pair);
+        __type (value, struct basic_link_table);
+        __uint(map_flags, BPF_F_NO_PREALLOC);
+}port_pair_table SEC (".maps");
+        
+struct port_list {
+        __uint (type, BPF_MAP_TYPE_HASH);
+        __uint (max_entries, N_MAX_PORT_LIST);
+        __type (key, int);
+        __type (value, int);
+        __uint(map_flags, BPF_F_NO_PREALLOC);
+};
+
+struct {
+        __uint (type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+        __uint (max_entries, N_PORTS);
+        __type (key, int);
+        __type (value, struct port_list);
+}tcp_src_table SEC (".maps"), tcp_dst_table SEC (".maps"), udp_src_table SEC (".maps"), udp_dst_table SEC (".maps");
 
 /*
+static __always_inline void port_intersection (int *src, int src_size, int *dst, int dst_size, int *ret, int *ret_size)
+{
+        int *largest;
+        int largest_size;
+        int *smaller;
+        int smaller_size;
+        *ret_size = 0;
+        if (src_size > dst_size){
+                largest = src;
+                largest_size = src_size;
+                smaller = dst;
+                smaller_size = dst_size;
+        }
+        else {
+                largest = dst;
+                largest_size = dst_size;
+                smaller = src;
+                smaller_size = src_size;
+        }
+
+        int cur_port;
+        for (int i = 0 ; i < largest_size ; i++) {
+                cur_port = largest[i];
+                for (int j = 0 ; j < smaller_size ; j++){
+                        if (smaller[j] == cur_port){
+                                ret[*ret_size] = cur_port;
+                                (*ret_size)++;
+                                break;
+                        }
+                }
+        }
+
+}
+
+static __always_inline int is_port_in_list (int port, int *list, int size)
+{
+        for (int i = 0 ; i < size ; i++){
+                if (list[i] == port)
+                        return true;
+                if (list[i] > 0)
+                        continue;
+                //if (list[i] 
+
+        }
+}
+
+
 SEC("xdp")
 int xdp_inspect_payload(struct xdp_md *ctx)
 {
@@ -231,7 +355,7 @@ pg_found:
 out:
     return action;
 }
-*/
+
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -245,4 +369,4 @@ int xdp_ids_func(struct xdp_md *ctx)
 {
         return XDP_PASS;
 }
-
+*/
