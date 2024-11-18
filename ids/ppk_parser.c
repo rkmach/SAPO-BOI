@@ -235,7 +235,7 @@ static void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
                         case PPK_STATE_RSID:
                                 //printf("%s\n","PPK_STATE_RSID");
                                 ppk_read_int(fd, &curr_rule->sid);
-                                printf("sid = %d\n", curr_rule->sid);
+                                //printf("sid = %d\n", curr_rule->sid);
                                 curr_state = PPK_STATE_RNCONTENTS;
                                 break;
                         case PPK_STATE_RNCONTENTS:
@@ -488,8 +488,7 @@ static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx,
 }
 
 void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
-                int size, int** src_array, int* src_array_idx, int** dst_array,
-                int* dst_array_idx)
+                int size)
 {
         struct ppk_port_pair *cur_port_pair;
         struct ppk_rule *cur_rule;
@@ -513,7 +512,7 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                                                 cur_rule->sid
                                         );
                                 }
-                                free (cur_content->pattern);
+                                //free (cur_content->pattern);
                         }
 
 
@@ -554,38 +553,6 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
         }
 }
 
-
-
-int binary_search (int key, int *arr, int left, int right)
-{
-        // Loop will run till left > right. It means that there
-        // are no elements to consider in the given subarray
-        while (left <= right) {
-
-                // calculating mid point
-                int mid = left + (right - left) / 2;
-
-                // Check if key is present at mid
-                if (arr[mid] == key) {
-                        return mid;
-                }
-
-                // If key greater than arr[mid], ignore left half
-                if (arr[mid] < key) {
-                        left = mid + 1;
-                }
-
-                // If key is smaller than or equal to arr[mid],
-                // ignore right half
-                else {
-                        right = mid - 1;
-                }
-        }
-
-        // If we reach here, then element was not present
-        return -1;
-}
-
 int main(){
         int rules_tcp_fd = open("rules_tcp.perereca", O_RDONLY);
         if(rules_tcp_fd < 0)
@@ -613,18 +580,15 @@ int main(){
                 puts("");
         }
 
+        /*
         for(int i = 0; i < tcp_len_array_rules; i++){
                 free(tcp_rules_array[i]->contents);
                 free(tcp_rules_array[i]);
         }
         free(tcp_rules_array);
 
-        /*
-        for(int i = 0; i < tcp_port_pair_size; i++){
-                free(tcp_port_pairs[i]);
-        }
-        */
         getchar();
+        */
 
 
         int rules_udp_fd = open("rules_udp.perereca", O_RDONLY);
@@ -633,7 +597,6 @@ int main(){
         struct ppk_rule** udp_rules_array = malloc(sizeof(struct ppk_rule*) * udp_len_array_rules);
         ppk_automaton_fill_rules_array(rules_udp_fd, udp_rules_array);
         close(rules_udp_fd);
-
 
         int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
         if (udp_fd < 0)
@@ -650,158 +613,13 @@ int main(){
                 puts("");
         }
 
-        /*
-
-        int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
-        if (udp_fd < 0)
-                exit(-1);
-        int udp_port_pair_size = 0;
-        struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size);
-        close (udp_fd);
-        */
-
-
-
-        /*
-        tcp_src_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                tcp_src_ports[i] = malloc (sizeof (int) * 1500);
-                memset (tcp_src_ports[i], 0, sizeof(int) * 1500);
-        }
-        tcp_dst_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                tcp_dst_ports[i] = malloc (sizeof (int) * 1500);
-                memset (tcp_dst_ports[i], 0, sizeof(int) * 1500);
-        }
-
-        udp_src_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                udp_src_ports[i] = malloc (sizeof (int) * 1500);
-                memset (udp_src_ports[i], 0, sizeof(int) * 1500);
-        }
-        udp_dst_ports = malloc (sizeof (int*) * PPK_LAST_PORT + 1);
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                udp_dst_ports[i] = malloc (sizeof (int) * 1500);
-                memset (udp_dst_ports[i], 0, sizeof(int) * 1500);
-        }
-        */
-
-        /*
         
         ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
         ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
 
-        ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size,
-                        udp_src_ports, udp_src_idx, udp_dst_ports, udp_dst_idx);
-        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size,
-                        tcp_src_ports, tcp_src_idx, tcp_dst_ports, tcp_dst_idx);
-
-        for(int i = 0; i < tcp_port_pair_size; i++){
-                struct ppk_port_pair* cur_pair = tcp_port_pairs[i];
-                puts("SRC_PORT:");
-                for(int j = 0; j < cur_pair->size_src_port; j++){
-                        printf("%d ", cur_pair->src_port[j]);
-                }
-                puts("");
-
-                puts("DST_PORT:");
-                for(int j = 0; j < cur_pair->size_dst_port; j++){
-                        printf("%d ", cur_pair->dst_port[j]);
-                }
-                puts("");
-                puts("============================");
-        }
-
-        //puts("=====================   TCP SRC =============================");
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                //printf("PORTA %d:\n", i);
-                for(int j = 0; j < tcp_src_idx[i]; j++){
-                        printf("%d ", tcp_src_ports[i][j]);
-                }
-                puts("");
-        }
-        puts("=====================   TCP DST  =============================");
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                printf("PORTA %d\n:", i);
-                for(int j = 0; j < tcp_dst_idx[i]; j++){
-                        printf("%d ", tcp_dst_ports[i][j]);
-                }
-                puts("");
-        }
-        puts("=====================   UDP SRC  =============================");
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                printf("PORTA %d\n:", i);
-                for(int j = 0; j < udp_src_idx[i]; j++){
-                        printf("%d ", udp_src_ports[i][j]);
-                }
-                puts("");
-        }
-        puts("=====================   UDP DST  =============================");
-        for (int i = 0 ; i <= PPK_LAST_PORT ; i++)
-        {
-                //printf("PORTA %d\n:", i);
-                for(int j = 0; j < udp_dst_idx[i]; j++){
-                        printf("%d ", udp_dst_ports[i][j]);
-                }
-                puts("");
-        }
-        */
+        ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size);
+        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size);
         //char input [30] = {'\x00','\x01','\x00','\x00','\x00','\x00','\x00','\x00','i','s','\x03','b', 'i', 'z', '\x00','\x00','\x01','\x00','\x01'};
-        //printf("result = %d\n", ahocora_search(udp_port_pairs[11]->rules[86].trie,input, 19));
-
-        /*
-           for ( int i = 0 ; i <= PPK_LAST_PORT ; i++){
-           printf ("port %d: ", i);
-           for (int j = 0 ; j < 1500 ; j++)
-           printf ("%d ", tcp_dst_ports[i][j]);
-           puts ("");
-
-           }
-
-           int l1, l2;
-           for (int i = 0 ; i < 65536 ; i++)
-           {
-           for (int j = 0 ; j < 1500 ; j++) {
-           if (tcp_src_ports[i][j] == 0){
-           l1 = j;
-           break;
-           }
-
-           }
-           for (int j = 0 ; j < 1500 ; j++) {
-           if (tcp_dst_ports[i][j] == 0){
-           l2 = j;
-           break;
-           }
-
-           }
-           printf ("Difference for port %d: %d\n", i, l2 - l1);
-           }
-
-
-
-           int count = 0;
-           for (int i = 0 ; i < 65536 ; i++) {
-        //printf ("intersection vector [%d]: ", i);
-        for (int j = 0 ; j < tcp_src_idx[i] ; j++) {
-        int ret = binary_search (tcp_src_ports[i][j], tcp_dst_ports[i], 0, tcp_dst_idx[i]);
-        if (ret != -1){
-        tcp_intersection_ports[i][tcp_int_idx[i]++] = tcp_src_ports[i][j];
-        printf ("%d ", tcp_src_ports[i][j]);
-        count ++;
-        }
-        }
-        printf (" SIZE %d\n", count);
-        count = 0;
-        }
-        */
 
         puts("aaaaaaaaaaaaaaa");
         return 0;
