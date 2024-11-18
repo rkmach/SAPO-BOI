@@ -155,12 +155,14 @@ static void ppk_parse_bitmap(struct ppk_content* content, int bitmap,
 
 static int ppk_read_contents(int fd, struct ppk_content* content){
         content->pattern = malloc(sizeof(uint8_t) * content->size_pattern); 
-        if (!content->pattern)
+        if (!content->pattern){
                 PPK_ERR(ENOMEM,__func__);
+        }
 
         content->pos = lseek (fd, 0, SEEK_CUR);
         int ret = read(fd, content->pattern, content->size_pattern);
         if(ret != content->size_pattern){
+                puts("fdsdsdsfdsfsdfsdfdsfdsdffdsfsd");
                 PPK_ERR (EIO,__func__);
         }
         lseek (fd, content->pos + content->size_pattern + 1, SEEK_SET);
@@ -233,6 +235,7 @@ static void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
                         case PPK_STATE_RSID:
                                 //printf("%s\n","PPK_STATE_RSID");
                                 ppk_read_int(fd, &curr_rule->sid);
+                                printf("sid = %d\n", curr_rule->sid);
                                 curr_state = PPK_STATE_RNCONTENTS;
                                 break;
                         case PPK_STATE_RNCONTENTS:

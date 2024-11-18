@@ -446,6 +446,15 @@ def flush_rules():
                                 f_rules_udp.write (b'%d\n' % len(content[0]))  # escreve o tamanho do content
                                 f_rules_udp.write (content[0] + b'\n')  # escreve o content
 
+                                cur_options_tuple = options_tuple_list[cur_index]
+                                if fp_set == 0 and cur_index == largest_content_index:
+                                        f_rules_udp.write (b'%d' % (cur_options_tuple[0] | (1<<5)) + b'\n') # escreve bitmap de modificadores
+                                        
+                                else:
+                                        f_rules_udp.write (b'%d' % cur_options_tuple[0] + b'\n') # escreve bitmap de modificadores
+                                f_rules_udp.write (cur_options_tuple[1] + b'\n') # escreve as opções dos modificadores
+                                cur_index += 1
+
 
 
 
