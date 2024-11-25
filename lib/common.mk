@@ -77,10 +77,10 @@ $(LIB_OBJS): %.o: %.c %.h $(LIB_H)
 
 # Allows including Makefile to define USER_TARGETS_OBJS to compile and link with
 $(USER_TARGETS_OBJS): %.o: %.c %.h  $(USER_TARGETS_OBJS_DEPS)
-	$(QUIET_CC)$(CC) $(CFLAGS) -Wall -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CFLAGS) -Wall -Wno-pointer-sign -c -o $@ $<
 
 $(USER_TARGETS): %: %.c  $(OBJECT_LIBBPF) $(OBJECT_LIBXDP) $(LIBMK) $(LIB_OBJS) $(KERN_USER_H) $(EXTRA_DEPS) $(EXTRA_USER_DEPS) $(BPF_SKEL) $(USER_TARGETS_OBJS)
-	$(QUIET_CC)$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $(LIB_OBJS) $(USER_TARGETS_OBJS) \
+	$(QUIET_CC)$(CC) -Wall -Wno-pointer-sign $(CFLAGS) $(LDFLAGS) -o $@ $(LIB_OBJS) $(USER_TARGETS_OBJS) \
 	 $< $(LDLIBS) $(SPEC_LIBS)
 
 $(BPF_OBJ): %.o: %.c $(KERN_USER_H) $(EXTRA_DEPS) $(BPF_HEADERS) $(LIBMK)

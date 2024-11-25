@@ -142,7 +142,6 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
                 int pattern_size, int rule_sid)
 {
         struct ahocora_node * cur_node = trie->array[0];
-        struct ahocora_node * root = trie->array[0];
         int new_final_state = 0;
         for (int i = 0 ; i < pattern_size ; i++) {
                 uint8_t cur_byte = 0;
@@ -234,7 +233,6 @@ static inline int ahocora_count_dict_hits (struct ahocora_trie *trie,
 int ahocora_search (struct ahocora_trie *trie, uint8_t *input, int size)
 {
         int num_found_patterns = 0;
-        int node_id;
         struct ahocora_node *node = trie->array[0];
         for (int i = 0 ; i < size + 1 ; i++){
                 printf ("looking %hhx[%c]\n", input[i],  input[i]);

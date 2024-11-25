@@ -70,5 +70,10 @@ struct ppk_port_pair{
         struct ahocora_trie *fp_trie;
 };
 
+void ppk_read_rule_array_size(int fd, int* size);
+void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules);
+void ppk_create_ahocora_automata(struct ppk_port_pair** port_pairs, int size);
+struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size, struct ppk_rule** rules);
+void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs, int size);
 
 #endif

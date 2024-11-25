@@ -5,19 +5,10 @@
 #include <string.h>
 #include "ppk_parser.h"
 
-int **tcp_src_ports;
-int tcp_src_idx[65536];
-int **tcp_dst_ports;
-int tcp_dst_idx[65536];
-
-int **udp_src_ports;
-int udp_src_idx[65536];
-int **udp_dst_ports;
-int udp_dst_idx[65536];
-static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int **array, int* array_idx) ;
+//static void ppk_handle_port_neg (struct ahocora_trie *trie, int *src_port, int *idx, int port_idx, int **array, int* array_idx) ;
 
 
-static inline void PPK_ERR(int err, const uint8_t* func_name){
+static inline void PPK_ERR(int err, const char* func_name){
         printf("ERROR: %s: %s\n", strerror(err), func_name);
         exit(-err);
 }
@@ -25,7 +16,7 @@ static inline void PPK_ERR(int err, const uint8_t* func_name){
 static int read_line (int fd, uint8_t * buf, int buf_size) {
         int cur_pos = 0;
         ssize_t read_bytes = 0;
-        while (read_bytes = read (fd, buf + cur_pos, 1) > 0){
+        while ((read_bytes = read (fd, buf + cur_pos, 1) > 0)){
                 if (buf[cur_pos] == '\n'){
                         break;
                 }
@@ -110,8 +101,6 @@ static int ppk_read_int(int fd, int* field){
 static void ppk_parse_bitmap(struct ppk_content* content, int bitmap,
                 uint8_t * options)
 {
-        int options_value [4] = {0};
-
         if (bitmap & PPK_FAST_PAT)
                 content->fast_pat = 1;
         if (bitmap & PPK_NOCASE)
@@ -182,7 +171,7 @@ static void  ppk_read_nrules(int fd, struct ppk_port_pair* port_pair) {
 }
 
 static void ppk_read_options(int fd, struct ppk_content* content){
-        int bitmap;
+        int bitmap = 0;
         ppk_read_int(fd, &bitmap);
         uint8_t buf [PPK_LINE_SIZE] = {0};
         read_line(fd, buf, PPK_LINE_SIZE);
@@ -215,7 +204,7 @@ static struct ppk_port_pair** ppk_read_nports (int fd, int *port_pairs_size)
         return port_pairs;
 }
 
-static void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
+void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
         int curr_state = PPK_STATE_RRULEINDEX;
         int curr_index;
         struct ppk_rule* curr_rule;
@@ -278,8 +267,8 @@ static void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
 struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size, struct ppk_rule** rules){
         int curr_state = PPK_STATE_RNPORTS;
 
-        struct ppk_port_pair **port_pairs;
-        struct ppk_port_pair* curr_port_pair;
+        struct ppk_port_pair **port_pairs = 0;
+        struct ppk_port_pair* curr_port_pair = 0;
         int port_pair_index = 0;
         int cont = 0;
         while(1){
@@ -318,6 +307,7 @@ struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size, struct ppk_ru
         }
 }
 
+/*
 static void ppk_add_single_port (struct ahocora_trie *trie, int port,
                 int port_idx, int ** array, int* array_idx)
 {
@@ -486,6 +476,7 @@ static void ppk_register_fp_trie (struct ppk_port_pair *port_pair, int port_idx,
         __ppk_register_fp_trie(port_pair, port_idx, port_pair->dst_port,
                         port_pair->size_dst_port, dst_array, dst_array_idx);
 }
+*/
 
 void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                 int size)
@@ -553,12 +544,17 @@ void ppk_create_ahocora_automata (struct ppk_port_pair **port_pairs, int size)
         }
 }
 
+void ppk_read_rule_array_size(int fd, int* size){
+        ppk_read_int(fd, size);
+}
+
+/*
 int main(){
         int rules_tcp_fd = open("rules_tcp.perereca", O_RDONLY);
         if(rules_tcp_fd < 0)
                 exit(-1);
         int tcp_len_array_rules, udp_len_array_rules;
-        ppk_read_int(rules_tcp_fd, &tcp_len_array_rules);
+        ppk_read_rule_array_size(rules_tcp_fd, &tcp_len_array_rules);
         printf("tcp_len_array_rules = %d\n", tcp_len_array_rules);
         struct ppk_rule** tcp_rules_array = malloc(sizeof(struct ppk_rule*) * tcp_len_array_rules);
         ppk_automaton_fill_rules_array(rules_tcp_fd, tcp_rules_array);
@@ -580,7 +576,6 @@ int main(){
                 puts("");
         }
 
-        /*
         for(int i = 0; i < tcp_len_array_rules; i++){
                 free(tcp_rules_array[i]->contents);
                 free(tcp_rules_array[i]);
@@ -588,11 +583,10 @@ int main(){
         free(tcp_rules_array);
 
         getchar();
-        */
 
 
         int rules_udp_fd = open("rules_udp.perereca", O_RDONLY);
-        ppk_read_int(rules_udp_fd, &udp_len_array_rules);
+        ppk_read_rule_array_size(rules_udp_fd, &udp_len_array_rules);
         printf("udp_len_array_rules = %d\n", udp_len_array_rules);
         struct ppk_rule** udp_rules_array = malloc(sizeof(struct ppk_rule*) * udp_len_array_rules);
         ppk_automaton_fill_rules_array(rules_udp_fd, udp_rules_array);
@@ -624,4 +618,5 @@ int main(){
         puts("aaaaaaaaaaaaaaa");
         return 0;
 }
+        */
 

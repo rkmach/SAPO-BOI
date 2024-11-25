@@ -34,6 +34,11 @@
 #include "automaton.h"
 #include "common_kern_user.h"
 
+
+#include "cora.h"
+#include "ppk_parser.h"
+#include <fcntl.h>
+
 #define NUM_FRAMES         4096 /* Frames per queue */
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE /* 4096 */
 #define FRAME_SIZE_MASK    (FRAME_SIZE - 1)
@@ -78,6 +83,7 @@ struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
 
+/*
 void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint32_t len){
         char* begin, *end;
         begin = (char*) (pkt + offset);
@@ -95,6 +101,7 @@ void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint
                 return;
         }
 }
+*/
 
 static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
         uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
@@ -116,7 +123,7 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
                 fprintf(log_file, "(Só o FP) Casou com a regra de sid %d!!!!!\n", rule->sid);
                 return;
         }
-        find_remaining_contents(rule, pkt, offset, len);
+        //find_remaining_contents(rule, pkt, offset, len);
 }
 
 void handle_receive_packets(struct xsk_socket_info* xsk_info){
@@ -243,10 +250,6 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
         }
 }
 
-static void create_dfa_per_rule(struct rule_t* rule, char**contents, size_t len_contents){
-        rule->dfa = get_ac_automaton(contents, len_contents);
-}
-
 static int build_map(int map_fd, struct automaton *dfa){
         struct automaton_map_key map_key;
         int cpus = libbpf_num_possible_cpus();
@@ -272,13 +275,6 @@ static int build_map(int map_fd, struct automaton *dfa){
         return 0;
 }
 
-void check_end_line(char* token){
-        size_t len = strcspn(token, "\n");
-        if(len == strlen(token))
-                return;
-        token[len] = '\0';
-}
-
 int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t src, uint16_t dst,
                 struct fast_p* fast_patterns_array, size_t len_fp_arr)
 {
@@ -290,7 +286,7 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
         puts(pin_dir);
 
         // In this moment, every pattern in the port group has been collected, so it's possible to create dfas 
-        build_automaton(fast_patterns_array, len_fp_arr, &dfa);
+        //build_automaton(fast_patterns_array, len_fp_arr, &dfa);
 
         // for(int k = 0; k < dfa.entry_number; k++){
         //     printf("entries[%d]:  (%d, %c)  (%d, %d, %d)\n", k, dfa.entries[k].key_state, dfa.entries[k].key_unit, 
@@ -329,147 +325,74 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
         return 0;
 }
 
-// criar um port_group para cada linha do arquivo
-void create_port_groups(struct port_group_t*** this_port_groups, const char* rules_file, int* n_pgs, int global_map_fd, int port_map_fd){
-        char line[8192];
-        FILE *file;
-        char* token, *aux_token;
-        char* inner_token, *aux_inner_token, *src_port, *dst_port;
-        char* subtoken, *aux_subtoken;
-        struct port_group_t* current_port_group;
-        struct rule_t* rule;
-        int rule_index = 0, pgs_index = *n_pgs;
-        uint32_t sid;
-        int M = 500;
-        int N = 500;
-
-        struct fast_p fast_patterns_array[300];
-        size_t index_fp = 0;
-
-        char* rule_contents[600];
-        int index_rule_contents = 0;
-
-        file = fopen(rules_file, "r");
-        if (file == NULL) {
-                printf("Error opening file!\n");
-                return;
-        }
-        if(*this_port_groups == NULL){
-                *this_port_groups = (struct port_group_t**)malloc(sizeof(struct port_group_t*)*M);
-                if(*this_port_groups == NULL){
-                        printf("Error allocating memory!\n");
-                        return;
-                }
-        }
-
-        while(fgets(line, 8192, file)){
-                token = __strtok_r(line, "~", &aux_token);  // these are the src and dst ports
-                current_port_group = (struct port_group_t*)malloc(sizeof(struct port_group_t));
-
-                if(pgs_index >= M){
-                        M = M + 100;
-                        *this_port_groups = (struct port_group_t**)realloc(*this_port_groups, sizeof(struct port_group_t*)*M);
-                }
-
-                current_port_group->n_rules = 0;
-                inner_token = __strtok_r(token, ";", &aux_inner_token);
-                src_port = inner_token;
-                if(strcmp(src_port, "any") == 0)
-                        current_port_group->src_port = 0;
-                else
-                        current_port_group->src_port = atoi(src_port);
-                inner_token = __strtok_r(NULL, ";", &aux_inner_token);
-                dst_port = inner_token;
-                if(strcmp(dst_port, "any") == 0)
-                        current_port_group->dst_port = 0;
-                else
-                        current_port_group->dst_port = atoi(dst_port);
-
-                current_port_group->rules = (struct rule_t**)malloc(sizeof(struct rule_t*)*N);
-
-                token = __strtok_r(NULL, "~", &aux_token);
-
-                while(token != NULL){  // start to parse the actual rules
-                                       // Needs to realloc
-                        if (current_port_group->n_rules >= N){
-                                N = N + 50;
-                                current_port_group->rules = (struct rule_t**)realloc(current_port_group->rules, sizeof(struct rule_t*)*N);
-                        }
-
-                        rule = (struct rule_t*)malloc(sizeof(struct rule_t));
-                        rule->n_contents = 0;
-
-                        inner_token = __strtok_r(token, ";", &aux_inner_token);
-
-                        // add fp in array
-                        fast_patterns_array[index_fp].fp = inner_token;
-
-                        inner_token = __strtok_r(NULL, ";", &aux_inner_token);
-                        check_end_line(inner_token);  // remove '\n'
-                        sid = atoi(inner_token);
-
-                        rule->sid = sid;
-
-                        inner_token = __strtok_r(NULL, ";", &aux_inner_token);
-                        if(inner_token){
-                                subtoken = __strtok_r(inner_token, ",", &aux_subtoken);
-                                while(subtoken != NULL){
-                                        check_end_line(subtoken);  // remove '\n'
-                                        rule_contents[index_rule_contents++] = subtoken;
-                                        rule->n_contents++;
-                                        subtoken = __strtok_r(NULL, ",", &aux_subtoken);
-                                }
-                        }
-                        else{
-                                rule->n_contents = 0;
-                        }
-
-                        // aqui, já tenho todos os contents da regra no vetor rule_contents (vetor de strings)
-                        // preencher o automato pra esses contents
-                        if(index_rule_contents > 0){
-                                create_dfa_per_rule(rule, rule_contents, index_rule_contents);
-                        }
-                        fast_patterns_array[index_fp].idx = rule_index;
-                        index_fp++;
-
-                        current_port_group->rules[rule_index] = rule;
-
-                        rule_index++;
-                        current_port_group->n_rules++;
-                        index_rule_contents = 0;
-
-                        token = __strtok_r(NULL, "~", &aux_token);
-                }
-                (*this_port_groups)[pgs_index] = current_port_group;
-                rule_index = 0;
-
-                if (initialize_fast_pattern_port_group_map(port_map_fd, &pgs_index, current_port_group->src_port,
-                                        current_port_group->dst_port, fast_patterns_array, index_fp) < 0) {
-                        printf("Não consegui criar os grupos de portas -- err(%d):%s\n",
-                                        errno, strerror(errno));
-                        return;
-                }
-                pgs_index++;
-                index_fp = 0;
-
-        }
-        fclose(file);
-        *n_pgs = pgs_index;
-}
-
-void destroy_port_groups(struct protocol_port_groups_t* protocol_port_group){
-        for(ssize_t i = 0; i < protocol_port_group->n_port_groups; i++){
-                for (ssize_t j = 0; j < protocol_port_group->port_groups_array[i]->n_rules; j++){
-                        free(protocol_port_group->port_groups_array[i]->rules[j]);
-                }
-                free(protocol_port_group->port_groups_array[i]->rules);
-                free(protocol_port_group->port_groups_array[i]);
-        }
-        free(protocol_port_group->port_groups_array);
-}
-
 int main(int argc, char **argv)
 {
+        // 25/11
+        int rules_tcp_fd = open("rules_tcp.perereca", O_RDONLY);
+        if(rules_tcp_fd < 0)
+                exit(-1);
+        int tcp_len_array_rules, udp_len_array_rules;
+        ppk_read_rule_array_size(rules_tcp_fd, &tcp_len_array_rules);
+        printf("tcp_len_array_rules = %d\n", tcp_len_array_rules);
+        struct ppk_rule** tcp_rules_array = malloc(sizeof(struct ppk_rule*) * tcp_len_array_rules);
+        ppk_automaton_fill_rules_array(rules_tcp_fd, tcp_rules_array);
+        close(rules_tcp_fd);
+
+
+        int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
+        if (tcp_fd < 0)
+                exit(-1);
+        int tcp_port_pair_size = 0;
+        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size, tcp_rules_array);
+        //printf("tcp size = %d\n", tcp_port_pair_size);
+        close (tcp_fd);
+        for(int i = 0; i < tcp_port_pair_size; i++){
+                printf("src = %d -- dst = %d\n", tcp_port_pairs[i]->src_port[0], tcp_port_pairs[i]->dst_port[0]);
+                for (int j = 0; j < tcp_port_pairs[i]->num_rules; j++){
+                        printf("sid = %d\n", tcp_port_pairs[i]->rules[j]->sid);
+                }
+                puts("");
+        }
+
+        /*
+        for(int i = 0; i < tcp_len_array_rules; i++){
+                free(tcp_rules_array[i]->contents);
+                free(tcp_rules_array[i]);
+        }
+        free(tcp_rules_array);
+
+        getchar();
+        */
+
+
+        int rules_udp_fd = open("rules_udp.perereca", O_RDONLY);
+        ppk_read_rule_array_size(rules_udp_fd, &udp_len_array_rules);
+        printf("udp_len_array_rules = %d\n", udp_len_array_rules);
+        struct ppk_rule** udp_rules_array = malloc(sizeof(struct ppk_rule*) * udp_len_array_rules);
+        ppk_automaton_fill_rules_array(rules_udp_fd, udp_rules_array);
+        close(rules_udp_fd);
+
+        int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
+        if (udp_fd < 0)
+                exit(-1);
+        int udp_port_pair_size = 0;
+        struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size, udp_rules_array);
+        //printf("udp size = %d\n", udp_port_pair_size);
+        close (udp_fd);
+        for(int i = 0; i < udp_port_pair_size; i++){
+                printf("src = %d -- dst = %d\n", udp_port_pairs[i]->src_port[0], udp_port_pairs[i]->dst_port[0]);
+                for (int j = 0; j < udp_port_pairs[i]->num_rules; j++){
+                        printf("sid = %d\n", udp_port_pairs[i]->rules[j]->sid);
+                }
+                puts("");
+        }
+
+        
+        ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
+        ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
+
+        ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size);
+        ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size);
         int xsks_map_fd;
         struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
         struct config cfg = {
