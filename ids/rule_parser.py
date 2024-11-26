@@ -538,8 +538,8 @@ if __name__ == "__main__":
         num_variable = 0
         #load_rules('snort3-community.rules')
         # *************************************************MUDAR**********************************************
-        #rules_dir = "../rules_teste/"
-        rules_dir = "../rules"
+        rules_dir = "../rules_teste/"
+        #rules_dir = "../rules"
         for file in os.listdir(rules_dir):
                 if file.endswith(".rules"):
                    load_rules(os.path.join(rules_dir, file))

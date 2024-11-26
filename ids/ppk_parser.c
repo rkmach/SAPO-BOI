@@ -500,7 +500,8 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                                                 cur_port_pair->fp_trie,
                                                 cur_content->pattern,
                                                 cur_content->size_pattern,
-                                                cur_rule->sid
+                                                // insere na no folha o indice da regra no vetor do par
+                                                j
                                         );
                                 }
                                 //free (cur_content->pattern);

@@ -325,6 +325,45 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
         return 0;
 }
 
+static void fill_dfa_map(int fd, struct ahocora_trie* trie)
+{
+        struct ahocora_node* node;
+        struct automaton_map_key key;
+        struct automaton_map_value value;
+        for(int i = 0; i < trie->size; i++){
+                node = trie->array[i];
+                for(int j = 0; j < NUM_ACCEPTABLE_SYMBOLS; j++){
+                        if (node->basic_links[j] != -1){
+                                printf("(%d, %c) -> %d\n", node->id, j, node->basic_links[j]);
+                                key.state = node->id;
+                                key.transition = j;
+                                key.padding = 0;
+                                value.state = node->basic_links[j];
+                                // leaf vai conter o indice do vetor de regras do par de portasque aponta pra essa regra
+                                value.leaf = node->rule_sid;
+                                bpf_map_update_elem(fd, &key, &value, BPF_ANY);
+                        }
+                }
+                
+        }
+        //ahocora_print_trie(trie);
+}
+static void fill_port_maps(int port_map_fd, struct ppk_port_pair** port_pairs, int size)
+{
+        struct port_map_key key;
+
+        for(int i = 0; i < size; i++){
+                key.src_port = port_pairs[i]->src_port[0];
+                key.dst_port = port_pairs[i]->dst_port[0];
+                if(bpf_map_update_elem(port_map_fd, &key, &i, BPF_ANY) < 0){
+                        puts("Problem initializing port map");
+                        return;
+                }
+                printf("Add porta (%d, %d)\n", key.src_port, key.dst_port);
+                fill_dfa_map(0, port_pairs[i]->fp_trie);
+        }
+}
+
 int main(int argc, char **argv)
 {
         // 25/11
@@ -393,6 +432,7 @@ int main(int argc, char **argv)
 
         ppk_create_ahocora_fp_automata(udp_port_pairs, udp_port_pair_size);
         ppk_create_ahocora_fp_automata(tcp_port_pairs, tcp_port_pair_size);
+
         int xsks_map_fd;
         struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
         struct config cfg = {
@@ -475,6 +515,10 @@ int main(int argc, char **argv)
         if (global_map_fd < 0) {
                 return EXIT_FAIL_BPF;
         }
+        puts("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+        fill_port_maps(tcp_port_map_fd, tcp_port_pairs, tcp_port_pair_size);
+        fill_port_maps(udp_port_map_fd, udp_port_pairs, udp_port_pair_size);
 
         /*
         // haverá um vetor de grupos de portas, contendo os fast patterns de TCP e UDP
@@ -553,15 +597,18 @@ int main(int argc, char **argv)
         free(umems);
         free(xsk_sockets);
         destroy_port_groups(&port_groups_array);
-        */
 
-        fclose(log_file);
 
         xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
         bpf_object__close(bpf_obj);
 
         free(thread_set.threads);	
-        xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+        fclose(log_file);
+        */
+        //xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
         return 0;
 }
+
+//comando:
+//!reset; make; sudo ./remove_maps.sh amigo; sudo ./ids --force --progsec xdp_ids_func -s 0:xdp_inspect_payload --queue 16 --dev amigo -G ./btf.c -H ./btf.c
 

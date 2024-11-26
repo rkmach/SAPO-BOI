@@ -311,10 +311,10 @@ struct {
 
 // os 4 primeiros campos foram registrados em seções BTF. Os últimos 3 são somente para tail call
 struct xdp_hints_mark {
-	__u32 mark;
-    __u32 global_map_index;
-    __u32 rule_index;
-	__u32 btf_id;
+        __u32 mark;
+        __u32 global_map_index;
+        __u32 rule_index;
+        __u32 btf_id;
 } __attribute__((aligned(4))) __attribute__((packed));
 
 #endif

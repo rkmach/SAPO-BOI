@@ -7,7 +7,6 @@
 
 #define MAX_MTU 1520  // MTU 1500 bytes
 
-/*
 SEC("xdp")
 int xdp_inspect_payload(struct xdp_md *ctx)
 {
@@ -80,6 +79,8 @@ SEC("xdp")
 int xdp_ids_func(struct xdp_md *ctx)
 {
 
+        /*
+         *
     __u32 k = 0, *v;
     v = bpf_map_lookup_elem(&counter_map, &k);
     if (v) {
@@ -87,6 +88,7 @@ int xdp_ids_func(struct xdp_md *ctx)
         bpf_map_update_elem(&counter_map, &k, v, BPF_ANY);
         bpf_printk("cont = %d\n", *v);
     }
+    */
 
 
     struct xdp_hints_mark *meta;
@@ -231,8 +233,8 @@ pg_found:
 out:
     return action;
 }
-*/
 
+/*
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__uint(max_entries, 65536);
@@ -245,4 +247,5 @@ int xdp_ids_func(struct xdp_md *ctx)
 {
         return XDP_PASS;
 }
+*/
 

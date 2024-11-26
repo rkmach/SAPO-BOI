@@ -65,7 +65,7 @@ static int ahocora_find_best_suffix_link (struct ahocora_trie *trie,
         if (node->parent == 0){
                 return best_node;
 
-                }
+        }
 
         int new_best_node = ahocora_lookup(trie, longest_pattern, pattern_size);
 
