@@ -330,22 +330,40 @@ static void fill_dfa_map(int fd, struct ahocora_trie* trie)
         struct ahocora_node* node;
         struct automaton_map_key key;
         struct automaton_map_value value;
+        char pin_dir[128], map_name[32];
+        sprintf(pin_dir, "/sys/fs/bpf/%s", iface_name);
+        int global_map_fd = open_bpf_map_file(pin_dir, "global_map", NULL);
+        if(global_map_fd < 0){
+                puts("Deu pau na hora de abrir o mapa de mapas");
+                return;
+        }
+        static int cont = 0;
+        sprintf(map_name, "id_map_%d", cont);
+        cont++;
+        int ids_map_fd = bpf_map_create (BPF_MAP_TYPE_HASH, map_name, sizeof(struct automaton_map_key), sizeof(struct automaton_map_value), trie->size * 3, 0);
+        printf("map_name = %s\n", map_name);
         for(int i = 0; i < trie->size; i++){
                 node = trie->array[i];
                 for(int j = 0; j < NUM_ACCEPTABLE_SYMBOLS; j++){
-                        if (node->basic_links[j] != -1){
-                                printf("(%d, %c) -> %d\n", node->id, j, node->basic_links[j]);
+                        if(node->basic_links[j] != -1){
+                                //printf("(%d, %c) -> %d\n", node->id, j, node->basic_links[j]);
                                 key.state = node->id;
                                 key.transition = j;
-                                key.padding = 0;
+                                //key.padding = 0;
                                 value.state = node->basic_links[j];
                                 // leaf vai conter o indice do vetor de regras do par de portasque aponta pra essa regra
                                 value.leaf = node->rule_sid;
-                                bpf_map_update_elem(fd, &key, &value, BPF_ANY);
+                                printf("value.leaf = %d\n", value.leaf);
+                                if(bpf_map_update_elem(ids_map_fd, &key, &value, BPF_ANY) < 0){
+                                        printf("Problem creating transiction in map (%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.leaf);
+                                        return;
+                                }
                         }
                 }
                 
         }
+
+        //bpf_map_lookup_elem(ids_map_fd, &key, &value, BPF_ANY);
         //ahocora_print_trie(trie);
 }
 static void fill_port_maps(int port_map_fd, struct ppk_port_pair** port_pairs, int size)

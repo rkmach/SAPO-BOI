@@ -496,6 +496,7 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                         {
                                 cur_content = cur_rule->contents + k;
                                 if (cur_content->fast_pat){
+                                        printf("Colocando j = %d\n", j);
                                         ahocora_insert_pattern(
                                                 cur_port_pair->fp_trie,
                                                 cur_content->pattern,
@@ -503,6 +504,7 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                                                 // insere na no folha o indice da regra no vetor do par
                                                 j
                                         );
+                                        break;
                                 }
                                 //free (cur_content->pattern);
                         }

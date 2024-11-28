@@ -13,13 +13,15 @@ struct {
 #define TAIL_CALL_MAP_SIZE 2
 
 struct ids_map {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, MAP_SIZE);
-    __type(key, struct automaton_map_key);
-    __type(value, struct automaton_map_value);
-} ids_map0 SEC(".maps"), ids_map1 SEC(".maps"), ids_map2 SEC(".maps"), \
-ids_map3 SEC(".maps"), ids_map4 SEC(".maps"), ids_map5 SEC(".maps");
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __uint(max_entries, MAP_SIZE);
+        __type(key, struct automaton_map_key);
+        __type(value, struct automaton_map_value);
+} ids_map SEC(".maps"); 
+
 /*, \
+ids_map0 SEC(".maps"), ids_map1 SEC(".maps"), ids_map2 SEC(".maps"), \
+ids_map3 SEC(".maps"), ids_map4 SEC(".maps"), ids_map5 SEC(".maps");
 ids_map6 SEC(".maps"), ids_map7 SEC(".maps"), ids_map8 SEC(".maps"), \
 ids_map9 SEC(".maps"), ids_map10 SEC(".maps"), ids_map11 SEC(".maps"), \
 ids_map12 SEC(".maps"), ids_map13 SEC(".maps"), ids_map14 SEC(".maps"), \
@@ -189,18 +191,18 @@ ids_map501 SEC(".maps"), ids_map502 SEC(".maps"), ids_map503 SEC(".maps"), \
 ids_map504 SEC(".maps"), ids_map505 SEC(".maps");
 */
 
-// I really wish it were possible to do something like the line bellow
-// struct ids_map mapas[500] SEC(".maps");
 
 struct global_map_t {
     __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
     __type(key, __u32);
-    __uint(max_entries, 550);
+    __uint(max_entries, 1500);
     __array(values, struct ids_map);
-} global_map SEC(".maps") = {
+} global_map SEC(".maps");
+/*
+= {
     .values = {
-        &ids_map0, &ids_map1, &ids_map2, &ids_map3, &ids_map4, &ids_map5}};
-/*, \
+        &ids_map}};
+, &ids_map1, &ids_map2, &ids_map3, &ids_map4, &ids_map5}};
         &ids_map6, &ids_map7, &ids_map8, &ids_map9, &ids_map10, &ids_map11, \
         &ids_map12, &ids_map13, &ids_map14, &ids_map15, &ids_map16, &ids_map17, \
         &ids_map18, &ids_map19, &ids_map20, &ids_map21, &ids_map22, &ids_map23, \
