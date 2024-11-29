@@ -495,7 +495,7 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                         for (int k = 0 ; k < cur_rule->num_contents ; k++)
                         {
                                 cur_content = cur_rule->contents + k;
-                                if (cur_content->fast_pat){
+                                if (cur_content->fast_pat == true){
                                         printf("Colocando j = %d\n", j);
                                         ahocora_insert_pattern(
                                                 cur_port_pair->fp_trie,

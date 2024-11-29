@@ -28,7 +28,7 @@ struct automaton_map_key {
 
 struct automaton_map_value {
 	__u16 state;
-	__u16 leaf;
+	//__u16 leaf;
 	int16_t fp__rule_index;
 };
 

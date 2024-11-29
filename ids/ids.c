@@ -116,6 +116,7 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
         offset = is_tcp(pkt, &xdp_hints_mark, &global_map_index, &rule_index) ? 54 : 42;
         this_port_groups = offset == 42 ? port_groups[0] : port_groups[1];
 
+        printf("global_map_index = %d\n", global_map_index);
         specific_pg = this_port_groups[global_map_index];
         rule = specific_pg->rules[rule_index];
         // se a regra não tem nenhum content, já casou!!
@@ -213,7 +214,7 @@ void working_thread(void* argument){
                         continue;  // nenhum evento
                 if(args->fds[0].revents & POLLIN){
                         printf("recebi na fila %d\n", args->i_queue);
-                        //handle_receive_packets(args->xsk_socket);
+                        handle_receive_packets(args->xsk_socket);
                 }
         }
 }
@@ -250,6 +251,7 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
         }
 }
 
+/*
 static int build_map(int map_fd, struct automaton *dfa){
         struct automaton_map_key map_key;
         int cpus = libbpf_num_possible_cpus();
@@ -274,7 +276,9 @@ static int build_map(int map_fd, struct automaton *dfa){
         }
         return 0;
 }
+*/
 
+/*
 int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t src, uint16_t dst,
                 struct fast_p* fast_patterns_array, size_t len_fp_arr)
 {
@@ -324,8 +328,9 @@ int initialize_fast_pattern_port_group_map(int port_map_fd, int* index, uint16_t
         free(dfa.entries);
         return 0;
 }
+*/
 
-static void fill_dfa_map(int fd, struct ahocora_trie* trie)
+static void fill_dfa_map(int index, struct ahocora_trie* trie)
 {
         struct ahocora_node* node;
         struct automaton_map_key key;
@@ -337,35 +342,35 @@ static void fill_dfa_map(int fd, struct ahocora_trie* trie)
                 puts("Deu pau na hora de abrir o mapa de mapas");
                 return;
         }
-        static int cont = 0;
-        sprintf(map_name, "id_map_%d", cont);
-        cont++;
-        int ids_map_fd = bpf_map_create (BPF_MAP_TYPE_HASH, map_name, sizeof(struct automaton_map_key), sizeof(struct automaton_map_value), trie->size * 3, 0);
+        sprintf(map_name, "ids_map%d", index);
         printf("map_name = %s\n", map_name);
+        int ids_map_fd = open_bpf_map_file(pin_dir, map_name, NULL);
+        if(ids_map_fd < 0){
+                 puts("Deu pau na hora de abrir o mapa automato");
+                return;
+        }
         for(int i = 0; i < trie->size; i++){
                 node = trie->array[i];
                 for(int j = 0; j < NUM_ACCEPTABLE_SYMBOLS; j++){
                         if(node->basic_links[j] != -1){
-                                //printf("(%d, %c) -> %d\n", node->id, j, node->basic_links[j]);
                                 key.state = node->id;
                                 key.transition = j;
-                                //key.padding = 0;
+                                key.padding = 0;
                                 value.state = node->basic_links[j];
-                                // leaf vai conter o indice do vetor de regras do par de portasque aponta pra essa regra
-                                value.leaf = node->rule_sid;
-                                printf("value.leaf = %d\n", value.leaf);
+                                // leaf vai conter o indice do vetor de regras do par de portas que aponta pra essa regra
+                                struct ahocora_node* aux = trie->array[node->basic_links[j]];
+                                value.fp__rule_index = (int16_t)aux->rule_sid;
+                                printf("(%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.fp__rule_index);
                                 if(bpf_map_update_elem(ids_map_fd, &key, &value, BPF_ANY) < 0){
-                                        printf("Problem creating transiction in map (%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.leaf);
+                                        printf("Problem creating transiction in map (%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.fp__rule_index);
                                         return;
                                 }
                         }
                 }
                 
         }
-
-        //bpf_map_lookup_elem(ids_map_fd, &key, &value, BPF_ANY);
-        //ahocora_print_trie(trie);
 }
+
 static void fill_port_maps(int port_map_fd, struct ppk_port_pair** port_pairs, int size)
 {
         struct port_map_key key;
@@ -378,7 +383,8 @@ static void fill_port_maps(int port_map_fd, struct ppk_port_pair** port_pairs, i
                         return;
                 }
                 printf("Add porta (%d, %d)\n", key.src_port, key.dst_port);
-                fill_dfa_map(0, port_pairs[i]->fp_trie);
+                //ahocora_print_trie(port_pairs[i]->fp_trie);
+                fill_dfa_map(i, port_pairs[i]->fp_trie);
         }
 }
 
@@ -538,39 +544,6 @@ int main(int argc, char **argv)
         fill_port_maps(tcp_port_map_fd, tcp_port_pairs, tcp_port_pair_size);
         fill_port_maps(udp_port_map_fd, udp_port_pairs, udp_port_pair_size);
 
-        /*
-        // haverá um vetor de grupos de portas, contendo os fast patterns de TCP e UDP
-        // representação fiel do mapa global_map
-        int num_port_groups = 0;
-        struct protocol_port_groups_t port_groups_array;
-        struct port_group_t** pg_array = NULL;
-        const char* udp_fast_ptts = cfg.udp_rule_inter;
-        const char* tcp_fast_ptts = cfg.tcp_rule_inter;
-        printf("ARQ TCP = %s\n", cfg.tcp_rule_inter);
-        printf("ARQ UDP = %s\n", cfg.udp_rule_inter);
-
-        create_port_groups(&pg_array, udp_fast_ptts, &num_port_groups,
-        global_map_fd, udp_port_map_fd);
-        if (pg_array == NULL) {
-        printf("Não alocou memória pra o vetor de grupos. Saindo.");
-        return EXIT_FAIL_BPF;
-        }
-        port_groups_array.port_groups_array = pg_array;
-        port_groups_array.n_port_groups = num_port_groups;
-
-        printf("UDP port_groups_array size = %ld\n", port_groups_array.n_port_groups);
-        port_groups[1] = port_groups_array.port_groups_array;
-
-        create_port_groups(&pg_array, tcp_fast_ptts, &num_port_groups,
-        global_map_fd, tcp_port_map_fd);
-
-        port_groups_array.port_groups_array = pg_array;
-        port_groups_array.n_port_groups = num_port_groups;
-
-        printf("TCP port_groups_array size = %ld\n", port_groups_array.n_port_groups);
-        port_groups[0] = port_groups_array.port_groups_array;
-
-
         // --- At this moment, every possible DFA has been filled. Go handle XSKS --- 
 
         map = bpf_object__find_map_by_name(bpf_obj, "xsks_map");
@@ -604,7 +577,7 @@ int main(int argc, char **argv)
 
         log_file = fopen("ids.log", "a");
 
-        \\ -- XSKS sockets properly configurated. Go wait for packets --
+        // -- XSKS sockets properly configurated. Go wait for packets --
         rx_and_process(&cfg, xsk_sockets, n_queues);
 
         // Cleanup 
@@ -614,7 +587,6 @@ int main(int argc, char **argv)
         }
         free(umems);
         free(xsk_sockets);
-        destroy_port_groups(&port_groups_array);
 
 
         xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
@@ -622,8 +594,7 @@ int main(int argc, char **argv)
 
         free(thread_set.threads);	
         fclose(log_file);
-        */
-        //xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+        xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
         return 0;
 }
 

@@ -17,12 +17,10 @@ struct ids_map {
         __uint(max_entries, MAP_SIZE);
         __type(key, struct automaton_map_key);
         __type(value, struct automaton_map_value);
-} ids_map SEC(".maps"); 
-
-/*, \
-ids_map0 SEC(".maps"), ids_map1 SEC(".maps"), ids_map2 SEC(".maps"), \
-ids_map3 SEC(".maps"), ids_map4 SEC(".maps"), ids_map5 SEC(".maps");
-ids_map6 SEC(".maps"), ids_map7 SEC(".maps"), ids_map8 SEC(".maps"), \
+} ids_map0 SEC(".maps"), ids_map1 SEC(".maps"), ids_map2 SEC(".maps"), \
+ids_map3 SEC(".maps"), ids_map4 SEC(".maps"), ids_map5 SEC(".maps"), \
+ids_map6 SEC(".maps"), ids_map7 SEC(".maps"), ids_map8 SEC(".maps");
+/*
 ids_map9 SEC(".maps"), ids_map10 SEC(".maps"), ids_map11 SEC(".maps"), \
 ids_map12 SEC(".maps"), ids_map13 SEC(".maps"), ids_map14 SEC(".maps"), \
 ids_map15 SEC(".maps"), ids_map16 SEC(".maps"), ids_map17 SEC(".maps"), \
@@ -197,13 +195,11 @@ struct global_map_t {
     __type(key, __u32);
     __uint(max_entries, 1500);
     __array(values, struct ids_map);
-} global_map SEC(".maps");
-/*
-= {
+} global_map SEC(".maps") = {
     .values = {
-        &ids_map}};
-, &ids_map1, &ids_map2, &ids_map3, &ids_map4, &ids_map5}};
-        &ids_map6, &ids_map7, &ids_map8, &ids_map9, &ids_map10, &ids_map11, \
+        &ids_map0, &ids_map1, &ids_map2, &ids_map3, &ids_map4, &ids_map5, \
+        &ids_map6, &ids_map7, &ids_map8}};
+/*
         &ids_map12, &ids_map13, &ids_map14, &ids_map15, &ids_map16, &ids_map17, \
         &ids_map18, &ids_map19, &ids_map20, &ids_map21, &ids_map22, &ids_map23, \
         &ids_map24, &ids_map25, &ids_map26, &ids_map27, &ids_map28, &ids_map29, \

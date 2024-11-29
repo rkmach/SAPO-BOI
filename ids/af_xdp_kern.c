@@ -62,7 +62,7 @@ int xdp_inspect_payload(struct xdp_md *ctx)
                 map_value = bpf_map_lookup_elem(ids_inspect_map, &map_key);
                 if (map_value) {
                         map_key.state = map_value->state;
-                        if (map_value->leaf > 0) {
+                        if (map_value->fp__rule_index >= 0) {
                                 meta->rule_index = map_value->fp__rule_index;
                                 meta->btf_id = bpf_core_type_id_local(struct xdp_hints_mark);
 
@@ -233,19 +233,4 @@ pg_found:
 out:
         return action;
 }
-
-/*
-   struct {
-   __uint(type, BPF_MAP_TYPE_ARRAY);
-   __uint(max_entries, 65536);
-   __uint(key_size, sizeof(int));
-   __uint(value_size, sizeof(int));
-   } tcp_src_port_map SEC(".maps");
-
-   SEC("xdp")
-   int xdp_ids_func(struct xdp_md *ctx)
-   {
-   return XDP_PASS;
-   }
-   */
 
