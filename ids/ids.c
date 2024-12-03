@@ -77,31 +77,31 @@ static const struct option_wrapper long_options[] = {
 
 static const char *__doc__ = "AF_XDP kernel bypass example\n";
 static char iface_name[16];
-//static bool global_exit;
 volatile sig_atomic_t global_exit = 0;
 struct xdp_hints_mark xdp_hints_mark = { 0 };
-struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
+struct ppk_port_pair** tcp_port_pairs;
+struct ppk_port_pair** udp_port_pairs;
 FILE* log_file;
+int tcp_port_pair_size = 0;
+int udp_port_pair_size = 0;
 
-/*
-void find_remaining_contents(struct rule_t* rule, uint8_t *pkt, int offset, uint32_t len){
+void find_remaining_contents(struct ppk_rule* rule, uint8_t *pkt, int offset, uint32_t len){
         char* begin, *end;
         begin = (char*) (pkt + offset);
         end = (char*) (pkt + len);
         if(!begin || len <= offset)
                 return;
 
-        char payload[2048];
+        char payload[1024];
         memmove(payload, begin, end-begin);
-        //printf("%s\n", payload);
+        printf("%s\n", payload);
 
-        if(process(rule->dfa, payload)){
+        if(ahocora_search(rule->trie, payload, end-begin)){
                 printf("aaaaaaaa\n\n");
                 fprintf(log_file, "(Com contents) Casou com a regra de sid %d!!!!!\n", rule->sid);
                 return;
         }
 }
-*/
 
 static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
         uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
@@ -109,22 +109,23 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
         int offset;
         uint32_t global_map_index;
         int16_t rule_index;
-        struct rule_t* rule;
-        struct port_group_t** this_port_groups;
-        struct port_group_t* specific_pg;
+        struct ppk_rule* rule;
 
         offset = is_tcp(pkt, &xdp_hints_mark, &global_map_index, &rule_index) ? 54 : 42;
-        this_port_groups = offset == 42 ? port_groups[0] : port_groups[1];
 
         printf("global_map_index = %d\n", global_map_index);
-        specific_pg = this_port_groups[global_map_index];
-        rule = specific_pg->rules[rule_index];
-        // se a regra não tem nenhum content, já casou!!
-        if(rule->n_contents == 0){
+        if(global_map_index >= tcp_port_pair_size)
+                global_map_index = global_map_index - tcp_port_pair_size; // calcula o indice pro UDP
+        if(offset == 42)
+                rule = udp_port_pairs[global_map_index]->rules[rule_index];
+        else
+                rule = tcp_port_pairs[global_map_index]->rules[rule_index];
+        // se a regra contém somente 1 content, já casou!!
+        if(rule->num_contents == 1){
                 fprintf(log_file, "(Só o FP) Casou com a regra de sid %d!!!!!\n", rule->sid);
                 return;
         }
-        //find_remaining_contents(rule, pkt, offset, len);
+        find_remaining_contents(rule, pkt, offset, len);
 }
 
 void handle_receive_packets(struct xsk_socket_info* xsk_info){
@@ -349,6 +350,7 @@ static void fill_dfa_map(int index, struct ahocora_trie* trie)
                  puts("Deu pau na hora de abrir o mapa automato");
                 return;
         }
+        int cont = 0;
         for(int i = 0; i < trie->size; i++){
                 node = trie->array[i];
                 for(int j = 0; j < NUM_ACCEPTABLE_SYMBOLS; j++){
@@ -360,31 +362,51 @@ static void fill_dfa_map(int index, struct ahocora_trie* trie)
                                 // leaf vai conter o indice do vetor de regras do par de portas que aponta pra essa regra
                                 struct ahocora_node* aux = trie->array[node->basic_links[j]];
                                 value.fp__rule_index = (int16_t)aux->rule_sid;
-                                printf("(%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.fp__rule_index);
+                                //printf("(%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.fp__rule_index);
                                 if(bpf_map_update_elem(ids_map_fd, &key, &value, BPF_ANY) < 0){
                                         printf("Problem creating transiction in map (%d, %c) -> (%d, %d)\n", key.state, key.transition, value.state, value.fp__rule_index);
                                         return;
                                 }
+                                cont++;
                         }
+                }
+                // colocar o fail link
+                if(node->suffix_link > 0){
+                        key.state = node->id;
+                        key.transition = 0;
+                        key.padding = 1;
+                        value.state = node->suffix_link;
+                        struct ahocora_node* aux = trie->array[node->suffix_link];
+                        value.fp__rule_index = (int16_t)aux->rule_sid;
+
+                        if(bpf_map_update_elem(ids_map_fd, &key, &value, BPF_ANY) < 0){
+                                printf("Problem creating fail link\n");
+                        }
+                        //cont++;
                 }
                 
         }
+        printf("Número de entradas no mapa %s ==> %d\n", map_name, cont);
+        printf("Size da trie ==> %d\n", trie->size);
 }
 
 static void fill_port_maps(int port_map_fd, struct ppk_port_pair** port_pairs, int size)
 {
         struct port_map_key key;
+        static int count = 0;
 
         for(int i = 0; i < size; i++){
                 key.src_port = port_pairs[i]->src_port[0];
                 key.dst_port = port_pairs[i]->dst_port[0];
-                if(bpf_map_update_elem(port_map_fd, &key, &i, BPF_ANY) < 0){
+                if(bpf_map_update_elem(port_map_fd, &key, &count, BPF_ANY) < 0){
                         puts("Problem initializing port map");
                         return;
                 }
                 printf("Add porta (%d, %d)\n", key.src_port, key.dst_port);
-                //ahocora_print_trie(port_pairs[i]->fp_trie);
-                fill_dfa_map(i, port_pairs[i]->fp_trie);
+                if(port_pairs[i]->src_port[0] == 0 && port_pairs[i]->dst_port[0] == 25)
+                        ahocora_print_trie(port_pairs[i]->fp_trie);
+                fill_dfa_map(count, port_pairs[i]->fp_trie);
+                count++;
         }
 }
 
@@ -398,17 +420,21 @@ int main(int argc, char **argv)
         ppk_read_rule_array_size(rules_tcp_fd, &tcp_len_array_rules);
         printf("tcp_len_array_rules = %d\n", tcp_len_array_rules);
         struct ppk_rule** tcp_rules_array = malloc(sizeof(struct ppk_rule*) * tcp_len_array_rules);
+
         ppk_automaton_fill_rules_array(rules_tcp_fd, tcp_rules_array);
+        
+
         close(rules_tcp_fd);
 
 
         int tcp_fd = open("sapo_boi_tcp_rules.perereca", O_RDONLY);
         if (tcp_fd < 0)
                 exit(-1);
-        int tcp_port_pair_size = 0;
-        struct ppk_port_pair **tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size, tcp_rules_array);
+        tcp_port_pairs = ppk_automaton (tcp_fd, &tcp_port_pair_size, tcp_rules_array);
+
         //printf("tcp size = %d\n", tcp_port_pair_size);
         close (tcp_fd);
+        /*
         for(int i = 0; i < tcp_port_pair_size; i++){
                 printf("src = %d -- dst = %d\n", tcp_port_pairs[i]->src_port[0], tcp_port_pairs[i]->dst_port[0]);
                 for (int j = 0; j < tcp_port_pairs[i]->num_rules; j++){
@@ -417,13 +443,13 @@ int main(int argc, char **argv)
                 puts("");
         }
 
-        /*
         for(int i = 0; i < tcp_len_array_rules; i++){
                 free(tcp_rules_array[i]->contents);
                 free(tcp_rules_array[i]);
         }
         free(tcp_rules_array);
 
+        return 0;
         getchar();
         */
 
@@ -438,10 +464,10 @@ int main(int argc, char **argv)
         int udp_fd = open("sapo_boi_udp_rules.perereca", O_RDONLY);
         if (udp_fd < 0)
                 exit(-1);
-        int udp_port_pair_size = 0;
-        struct ppk_port_pair **udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size, udp_rules_array);
+        udp_port_pairs = ppk_automaton (udp_fd, &udp_port_pair_size, udp_rules_array);
         //printf("udp size = %d\n", udp_port_pair_size);
         close (udp_fd);
+        /*
         for(int i = 0; i < udp_port_pair_size; i++){
                 printf("src = %d -- dst = %d\n", udp_port_pairs[i]->src_port[0], udp_port_pairs[i]->dst_port[0]);
                 for (int j = 0; j < udp_port_pairs[i]->num_rules; j++){
@@ -449,8 +475,9 @@ int main(int argc, char **argv)
                 }
                 puts("");
         }
+        */
 
-        
+        printf("Tamanho do vetor mapa de mapas = %d\n", tcp_port_pair_size + udp_port_pair_size);
         ppk_create_ahocora_automata (udp_port_pairs, udp_port_pair_size);
         ppk_create_ahocora_automata (tcp_port_pairs, tcp_port_pair_size);
 
@@ -543,15 +570,16 @@ int main(int argc, char **argv)
 
         fill_port_maps(tcp_port_map_fd, tcp_port_pairs, tcp_port_pair_size);
         fill_port_maps(udp_port_map_fd, udp_port_pairs, udp_port_pair_size);
+        return 0;
 
         // --- At this moment, every possible DFA has been filled. Go handle XSKS --- 
 
         map = bpf_object__find_map_by_name(bpf_obj, "xsks_map");
         xsks_map_fd = bpf_map__fd(map);
         if (xsks_map_fd < 0) {
-        fprintf(stderr, "ERROR: no xsks map found: %s\n",
-        strerror(xsks_map_fd));
-        exit(EXIT_FAILURE);
+                fprintf(stderr, "ERROR: no xsks map found: %s\n",
+                                strerror(xsks_map_fd));
+                exit(EXIT_FAILURE);
         }
 
         //Configure and initialize AF_XDP sockets  (vetor de ponteiros!!) 
@@ -559,17 +587,17 @@ int main(int argc, char **argv)
         printf("Número de filas: %d\n\n", n_queues);
 
         umems = (struct xsk_umem_info **)
-        malloc(sizeof(struct xsk_umem_info *) * n_queues);
+                malloc(sizeof(struct xsk_umem_info *) * n_queues);
         xsk_sockets = (struct xsk_socket_info **)
-        malloc(sizeof(struct xsk_socket_info *) * n_queues);
+                malloc(sizeof(struct xsk_socket_info *) * n_queues);
 
         if(!umems || !xsk_sockets){
-        printf("Não consegui alocar o vetor de UMEMS ou o vetor de sockets!\n");
+                printf("Não consegui alocar o vetor de UMEMS ou o vetor de sockets!\n");
         }
 
         // this function configures UMEMs and XSKs
         if(!af_xdp_init(umems, xsk_sockets, n_queues, &cfg)){
-        printf("Tudo certo!!\n");
+                printf("Tudo certo!!\n");
         }
 
         // fill xsks map 
@@ -582,8 +610,8 @@ int main(int argc, char **argv)
 
         // Cleanup 
         for (int i_queue = 0; i_queue < n_queues; i_queue++) {
-        xsk_socket__delete(xsk_sockets[i_queue]->xsk);
-        xsk_umem__delete(umems[i_queue]->umem);
+                xsk_socket__delete(xsk_sockets[i_queue]->xsk);
+                xsk_umem__delete(umems[i_queue]->umem);
         }
         free(umems);
         free(xsk_sockets);

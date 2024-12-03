@@ -55,7 +55,7 @@ int init_btf_info_via_bpf_object(struct bpf_object *bpf_obj, struct xdp_hints_ma
 }
 
 bool is_tcp(uint8_t *pkt, struct xdp_hints_mark *meta, uint32_t* global_map_index, int16_t* rule_index){
-    struct xsk_btf_info *xbi = meta->xbi;
+        struct xsk_btf_info *xbi = meta->xbi;
 	__u32 mark = 3;
 	__u32 index = 99;
 	__u32 r_index = 9;
@@ -67,8 +67,8 @@ bool is_tcp(uint8_t *pkt, struct xdp_hints_mark *meta, uint32_t* global_map_inde
 	*global_map_index = index;
 	printf("rule_index = %d\n", r_index);
 	*rule_index = r_index;
-    if(mark == 1)
-        return true;
-    return false;
+        if(mark == 1)
+                return true;
+        return false;
 }
 

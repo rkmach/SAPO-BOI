@@ -226,7 +226,7 @@ def get_contents_by_rule (rule):
         rule = rule.split (b';')
 
         for i in range (len(rule)):
-                if b'sid:' in rule[i]:
+                if b' sid:' in rule[i]:
                         sid = rule[i].replace(b' sid:',b'')
                         if sid not in seen_sids:
                                 seen_sids.append(sid)
@@ -292,15 +292,21 @@ def load_rules (file_name):
                         ignored_rules.append(contents)
         #print(f"ignored_rules: {ignored_rules}")
                 
-def create_single_port_entries(port_pair, single_port_pairs, protocol_port_pairs):
+def create_single_port_entries(port_pair, protocol_port_pairs):
         rules = protocol_port_pairs[port_pair]
+        single_port_pairs = {}
         src_ports = port_pair[0].split(b' ')
         dst_ports = port_pair[1].split(b' ')
         for s_port in src_ports:
                 for d_port in dst_ports:
                         single_port_pairs[(s_port, d_port)] = rules
+        return single_port_pairs
 
 def handle_any_in_single_port_entries(single_port_pairs: dict):
+        for x in single_port_pairs:
+                if x == (b'80', b'0'):
+                        print(single_port_pairs[x])
+        return
         original_single = copy.deepcopy(single_port_pairs)
         for port_pair in single_port_pairs:
                 src_port = port_pair[0]
@@ -338,7 +344,7 @@ def flush_rules():
         f_rules_tcp.write(b'%d\n' % tcp_processed_rules)
         #print("------------- BEGIN TCP --------------------")
         for port_pair in tcp_port_pair:
-                create_single_port_entries(port_pair, tcp_single_port_pairs, tcp_port_pair)
+                single_port_pairs = create_single_port_entries(port_pair, tcp_port_pair)
                 current_rule_set = tcp_port_pair[port_pair]
                 for i in range(len(current_rule_set)):
                         rule = current_rule_set[i]
@@ -412,7 +418,7 @@ def flush_rules():
         mapper_index = 0
         f_rules_udp.write(b'%d\n' % udp_processed_rules)
         for port_pair in udp_port_pair:
-                create_single_port_entries(port_pair, udp_single_port_pairs, udp_port_pair)
+                udp_single_port_pairs = create_single_port_entries(port_pair, udp_port_pair)
                 current_rule_set = udp_port_pair[port_pair]
                 for i in range(len(current_rule_set)):
                         rule = current_rule_set[i]
@@ -541,7 +547,7 @@ if __name__ == "__main__":
         rules_dir = "../rules_teste/"
         #rules_dir = "../rules"
         for file in os.listdir(rules_dir):
-                if file.endswith(".rules"):
+                if file.endswith("16mil.rules"):
                    load_rules(os.path.join(rules_dir, file))
 
         flush_rules()

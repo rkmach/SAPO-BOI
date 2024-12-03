@@ -253,6 +253,7 @@ void ppk_automaton_fill_rules_array(int fd, struct ppk_rule** rules){
                                 if(content_index == curr_rule->num_contents){
                                         curr_state = PPK_STATE_RRULEINDEX;
                                         rules[curr_index] = curr_rule;
+                                        printf("rules[%d] --> sid = %d\n", curr_index, rules[curr_index]->sid);
                                 }
                                 // nao eh ultimo content
                                 else{
@@ -299,6 +300,7 @@ struct ppk_port_pair** ppk_automaton(int fd, int *port_pairs_size, struct ppk_ru
                                 for(int i = 0; i < curr_port_pair->num_rules; i++){
                                         ppk_read_int(fd, &idx);
                                         curr_port_pair->rules[i] = rules[idx];  // li a posição q ta a regra
+                                        printf(
                                 }
                                 port_pairs[port_pair_index++] = curr_port_pair;
                                 curr_state = PPK_STATE_RPORTS;
@@ -495,8 +497,10 @@ void ppk_create_ahocora_fp_automata (struct ppk_port_pair **port_pairs,
                         for (int k = 0 ; k < cur_rule->num_contents ; k++)
                         {
                                 cur_content = cur_rule->contents + k;
+                                if (cur_port_pair->src_port[0] == 0 && cur_port_pair->dst_port[0] == 25)
+                                        printf("size pattern = %d\n", cur_content->size_pattern);
                                 if (cur_content->fast_pat == true){
-                                        printf("Colocando j = %d\n", j);
+                                        //printf("Colocando j = %d\n", j);
                                         ahocora_insert_pattern(
                                                 cur_port_pair->fp_trie,
                                                 cur_content->pattern,

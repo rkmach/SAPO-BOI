@@ -5,7 +5,7 @@
 #include "common_kern_user.h"
 #include "maps.h"
 
-#define MAX_MTU 1520  // MTU 1500 bytes
+#define MAX_MTU 100  // MTU 1500 bytes
 
 SEC("xdp")
 int xdp_inspect_payload(struct xdp_md *ctx)
@@ -18,8 +18,6 @@ int xdp_inspect_payload(struct xdp_md *ctx)
         struct hdr_cursor nh;
         __u32 rx_queue_index = ctx->rx_queue_index;
 
-        // Compute current packet pointer 
-
         if (meta + 1 > data) {
                 return XDP_ABORTED;
         }
@@ -31,10 +29,8 @@ int xdp_inspect_payload(struct xdp_md *ctx)
         else{
                 mark = 42;
         }
-        // bpf_printk("mark = %d\n", mark);
 
         nh.pos = data;
-
         if (nh.pos + mark > data_end)
                 return XDP_DROP;
         nh.pos += mark;
@@ -42,8 +38,7 @@ int xdp_inspect_payload(struct xdp_md *ctx)
         __u8 *transition;
         struct automaton_map_key map_key;
         struct automaton_map_value *map_value;
-        int i;
-
+        int i, cont = 0;
         __u32 global_map_index = meta->global_map_index;
         struct ids_map* ids_inspect_map = bpf_map_lookup_elem(&global_map, &global_map_index);
         if(!ids_inspect_map)
@@ -52,13 +47,12 @@ int xdp_inspect_payload(struct xdp_md *ctx)
         map_key.state = 0;
         map_key.padding = 0;
         #pragma unroll
-        for (i = 0; i < MAX_MTU; i++) {
-                transition = nh.pos;
-                if (transition + 1 > data_end) {
+        for (i = 0; i < 1500; i++) {
+                if (nh.pos + 1 > data_end) {
                         // Reach the last byte of the packet (None fast pattern was found. Drop packet) 
                         return XDP_DROP;
                 }
-                map_key.transition = *transition;
+                map_key.transition = *(__u8*)nh.pos;
                 map_value = bpf_map_lookup_elem(ids_inspect_map, &map_key);
                 if (map_value) {
                         map_key.state = map_value->state;
@@ -69,7 +63,28 @@ int xdp_inspect_payload(struct xdp_md *ctx)
                                 return bpf_redirect_map(&xsks_map, rx_queue_index, 0);
                         }
                 }
-                else map_key.state = 0;
+                // se não tem link, vou pro fail link, e não consumo o byte atual
+                else if (map_key.state != 0) {
+                        map_key.transition = 0;
+                        map_key.padding = 1;
+                        map_value = bpf_map_lookup_elem(ids_inspect_map, &map_key);
+                        if (map_value) {
+                                map_key.state = map_value->state;
+                                if (map_value->fp__rule_index >= 0) {
+                                        meta->rule_index = map_value->fp__rule_index;
+                                        meta->btf_id = bpf_core_type_id_local(struct xdp_hints_mark);
+                                        return bpf_redirect_map(&xsks_map, rx_queue_index, 0);
+                                }
+                        }
+                        // fail link padrão = estado zero
+                        else {
+                                map_key.state = 0;
+                        }
+                }
+                else {
+                        map_key.state = 0;
+                }
+                map_key.padding = 0;
                 nh.pos += 1;
         }
         return XDP_DROP;
@@ -233,4 +248,6 @@ pg_found:
 out:
         return action;
 }
+
+char _license [] SEC ("license") = "GPL";
 

@@ -169,7 +169,7 @@ void ahocora_insert_pattern (struct ahocora_trie *trie, uint8_t *pattern,
         if (new_final_state)
                 trie->num_patterns++;
 
-        printf("rule_sid = %d\n", rule_sid);
+        //printf("rule_sid = %d\n", rule_sid);
         cur_node->rule_sid = rule_sid;
 }
 

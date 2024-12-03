@@ -19,8 +19,7 @@ struct ids_map {
         __type(value, struct automaton_map_value);
 } ids_map0 SEC(".maps"), ids_map1 SEC(".maps"), ids_map2 SEC(".maps"), \
 ids_map3 SEC(".maps"), ids_map4 SEC(".maps"), ids_map5 SEC(".maps"), \
-ids_map6 SEC(".maps"), ids_map7 SEC(".maps"), ids_map8 SEC(".maps");
-/*
+ids_map6 SEC(".maps"), ids_map7 SEC(".maps"), ids_map8 SEC(".maps"), \
 ids_map9 SEC(".maps"), ids_map10 SEC(".maps"), ids_map11 SEC(".maps"), \
 ids_map12 SEC(".maps"), ids_map13 SEC(".maps"), ids_map14 SEC(".maps"), \
 ids_map15 SEC(".maps"), ids_map16 SEC(".maps"), ids_map17 SEC(".maps"), \
@@ -102,7 +101,8 @@ ids_map240 SEC(".maps"), ids_map241 SEC(".maps"), ids_map242 SEC(".maps"), \
 ids_map243 SEC(".maps"), ids_map244 SEC(".maps"), ids_map245 SEC(".maps"), \
 ids_map246 SEC(".maps"), ids_map247 SEC(".maps"), ids_map248 SEC(".maps"), \
 ids_map249 SEC(".maps"), ids_map250 SEC(".maps"), ids_map251 SEC(".maps"), \
-ids_map252 SEC(".maps"), ids_map253 SEC(".maps"), ids_map254 SEC(".maps"), \
+ids_map252 SEC(".maps"), ids_map253 SEC(".maps"), ids_map254 SEC(".maps");
+/*
 ids_map255 SEC(".maps"), ids_map256 SEC(".maps"), ids_map257 SEC(".maps"), \
 ids_map258 SEC(".maps"), ids_map259 SEC(".maps"), ids_map260 SEC(".maps"), \
 ids_map261 SEC(".maps"), ids_map262 SEC(".maps"), ids_map263 SEC(".maps"), \
@@ -198,8 +198,7 @@ struct global_map_t {
 } global_map SEC(".maps") = {
     .values = {
         &ids_map0, &ids_map1, &ids_map2, &ids_map3, &ids_map4, &ids_map5, \
-        &ids_map6, &ids_map7, &ids_map8}};
-/*
+        &ids_map6, &ids_map7, &ids_map8, &ids_map9, &ids_map10, &ids_map11, \
         &ids_map12, &ids_map13, &ids_map14, &ids_map15, &ids_map16, &ids_map17, \
         &ids_map18, &ids_map19, &ids_map20, &ids_map21, &ids_map22, &ids_map23, \
         &ids_map24, &ids_map25, &ids_map26, &ids_map27, &ids_map28, &ids_map29, \
@@ -240,7 +239,11 @@ struct global_map_t {
         &ids_map234, &ids_map235, &ids_map236, &ids_map237, &ids_map238, &ids_map239, \
         &ids_map240, &ids_map241, &ids_map242, &ids_map243, &ids_map244, &ids_map245, \
         &ids_map246, &ids_map247, &ids_map248, &ids_map249, &ids_map250, &ids_map251, \
-        &ids_map252, &ids_map253, &ids_map254, &ids_map255, &ids_map256, &ids_map257, \
+        &ids_map252, &ids_map253, &ids_map254}
+};
+        /*
+        , &ids_map255, &ids_map256}};
+        &ids_map257, \
         &ids_map258, &ids_map259, &ids_map260, &ids_map261, &ids_map262, &ids_map263, \
         &ids_map264, &ids_map265, &ids_map266, &ids_map267, &ids_map268, &ids_map269, \
         &ids_map270, &ids_map271, &ids_map272, &ids_map273, &ids_map274, &ids_map275, \
