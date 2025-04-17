@@ -1,0 +1,100 @@
+ 2008  cd SAPO-BOI/ids/
+ 2009  ls
+ 2010  vim af_xdp_kern.c 
+ 2011  ls
+ 2012  cp ../bpf_hello_world/loader.c .
+ 2013  vim loader.c 
+ 2014  cd ..
+ 2015  ls
+ 2016  sudo ./configure 
+ 2017  ls
+ 2018  make clean && make
+ 2019  vim Makefile 
+ 2020  vim ids/Makefile 
+ 2021  make
+ 2022  vim ids/af_xdp_kern.c 
+ 2023  make
+ 2024  vim ids/af_xdp_kern.c 
+ 2025  make
+ 2026  vim ids/af_xdp_kern.c 
+ 2027  make
+ 2028  vim ids/af_xdp_kern.c 
+ 2029  make
+ 2030  vim ids/af_xdp_kern.c 
+ 2031  make
+ 2032  ls
+ 2033  cd ids
+ 2034  ls
+ 2035  ./loader 
+ 2036  sudo ./loader 
+ 2037  vim ids/af_xdp_kern.c 
+ 2038  ls
+ 2039  vim af_xdp_kern.c
+ 2040  make clean
+ 2041  make
+ 2042  sudo ./loader 
+ 2043  vim Makefile 
+ 2044  make clean
+ 2045  make
+ 2046  sudo ./loader 
+ 2047  ip a
+ 2048  sudo ip link set porra xdpgeneric off
+ 2049  ip a
+ 2050  sudo ./loader 
+ 2051  ip a
+ 2052  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2053  vim af_xdp_kern.
+ 2054  vim af_xdp_kern.c
+ 2055  sudo ip link set porra xdpgeneric off
+ 2056  make clean && make
+ 2057  sudo ./loader 
+ 2058  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2059  vim af_xdp_kern.
+ 2060  vim af_xdp_kern.c
+ 2061  make clean && make
+ 2062  vim af_xdp_kern.c
+ 2063  make
+ 2064  vim af_xdp_kern.c
+ 2065  make
+ 2066  sudo ip link set porra xdpgeneric off
+ 2067  sudo ./loader 
+ 2068  vim af_xdp_kern.c
+ 2069  make
+ 2070  sudo ip link set porra xdpgeneric off
+ 2071  sudo ./loader 
+ 2072  ip a
+ 2073  vim ids.c
+ 2074  make clean
+ 2075  make
+ 2076  vim af_xdp_kern.c
+ 2077  make
+ 2078  sudo ./loader 
+ 2079  sudo ip link set porra xdpgeneric off
+ 2080  sudo ./loader 
+ 2081  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2082  vim af_xdp_kern.c
+ 2083  make
+ 2084  sudo ip link set porra xdpgeneric off
+ 2085  sudo ./loader 
+ 2086  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2087  vim af_xdp_kern.c
+ 2088  make clean
+ 2089  make
+ 2090  sudo ip link set porra xdpgeneric off
+ 2091  sudo ./loader 
+ 2092  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2093  ip a
+ 2094  vim af_xdp_kern.c
+ 2095  make clean
+ 2096  make
+ 2097  sudo ip link set porra xdpgeneric off
+ 2098  sudo ./loader 
+ 2099  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2100  vim af_xdp_kern.c
+ 2101  make
+ 2102  sudo ./loader 
+ 2103  sudo cat /sys/kernel/debug/tracing/trace_pipe
+ 2104  vim af_xdp_kern.c
+ 2105  history 
+ 2106  history | tail -100
+ 2107  history | tail -100 > bash.txt
