@@ -14,6 +14,11 @@
 typedef __u16 src_port_t;
 typedef __u16 dst_port_t;
 
+struct perf_event_sample {
+        __u16 pkt_len;    /* total lenght of the packet */
+        __u8 pkt_data[4];  /* pointer to the packet data */
+};
+
 struct port_map_key {
 	src_port_t src_port;
 	dst_port_t dst_port;

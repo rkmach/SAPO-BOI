@@ -4,6 +4,9 @@ USER_TARGETS   := ids
 BPF_TARGETS    := af_xdp_kern
 #BPF_TARGETS    := suspicion-xdp
 
+#USER_TARGETS   := bola
+#BPF_TARGETS    := perf_xdp_kern 
+
 # Define C-code objects USER_TARGETS needs
 USER_TARGETS_OBJS := common_params.o common_user_bpf_xdp.o
 USER_TARGETS_OBJS += ppk_parser.o cora.o
