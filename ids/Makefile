@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 
-USER_TARGETS   := ids
-BPF_TARGETS    := af_xdp_kern
+#USER_TARGETS   := ids
+#BPF_TARGETS    := af_xdp_kern
 #BPF_TARGETS    := suspicion-xdp
 
-#USER_TARGETS   := bola
-#BPF_TARGETS    := perf_xdp_kern 
+USER_TARGETS   := bola
+BPF_TARGETS    := perf_xdp_kern 
 
 # Define C-code objects USER_TARGETS needs
 USER_TARGETS_OBJS := common_params.o common_user_bpf_xdp.o

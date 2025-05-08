@@ -83,7 +83,7 @@ struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
 int pkt_counter;
-
+struct ppk_rule* rule;
 
 static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
         uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
@@ -109,7 +109,25 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
         //find_remaining_contents(rule, pkt, offset, len);
 }
 
-void handle_receive_packets(struct xsk_socket_info* xsk_info){
+static inline int pkt_handler(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
+        uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
+        char* begin, *end;
+        int offset = 54;
+        begin = (char*) (pkt + offset);
+	end = (char*) (pkt + len);
+        if(!begin || len <= offset)
+                return;
+
+	char payload[256];
+	memcpy(payload, begin, end-begin);
+        if(ahocora_search(rule->trie, payload, sizeof(payload))){
+                //printf("aaaaaaaa\n\n");
+                //fprintf(log_file, "(Com contents) Casou com a regra de sid %d!!!!!\n", rule->sid);
+                return;
+        }
+}
+
+static inline void handle_receive_packets(struct xsk_socket_info* xsk_info){
         uint32_t idx_rx = 0;
         uint32_t idx_fq = 0;
         int ret;
@@ -156,8 +174,10 @@ void handle_receive_packets(struct xsk_socket_info* xsk_info){
 
                 // função que termina de verificar om pacote (AAAAAAAAAAAAAAAAAAAAAA)
                 // process_packet(xsk_info, addr, len);
-                printf("pacote len = %d\n", len);
+                //printf("pacote len = %d\n", len);
                 //process_packet(xsk_info, addr, len);
+                pkt_handler(xsk_info, addr, len);
+
 
                 // adiciona o endereço à lista de endereços disponíveis do fill ring da UMEM
                 xsk_free_umem_frame(xsk_info, addr);
@@ -205,7 +225,7 @@ void working_thread(void* argument){
 */
 
 void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets, int n_queues){
-        struct pollfd fds[n_queues];  // n_queue vetores de tamanho 1. Essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
+        struct pollfd fds[n_queues];  // Essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
         for(int i = 0; i < n_queues; i++)
                 memset(fds, 0, sizeof(fds));
         int i_queue, rc;
@@ -222,7 +242,7 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
                         continue;  // nenhum evento
                 for(i_queue = 0; i_queue < n_queues; i_queue++){
                         if(fds[i_queue].revents & POLLIN){
-                                printf("recebi na fila %d\n", i_queue);
+                                //printf("recebi na fila %d\n", i_queue);
                                 handle_receive_packets(xsk_sockets[i_queue]);
                         }
                 }
@@ -232,6 +252,13 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
 
 int main(int argc, char **argv)
 {
+        rule = malloc(sizeof(struct ppk_rule));
+        rule->sid = 1;
+        rule->num_contents = 1;
+        rule->trie = ahocora_create_trie();
+        ahocora_insert_pattern(rule->trie, "Taiguara", 8, 1);
+        ahocora_build_suffix_links(rule->trie);
+        ahocora_build_dict_suffix_links(rule->trie);
 
         int xsks_map_fd;
         struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
@@ -314,9 +341,9 @@ int main(int argc, char **argv)
         printf("Número de filas: %d\n\n", n_queues);
 
         umems = (struct xsk_umem_info **)
-        malloc(sizeof(struct xsk_umem_info *) * n_queues);
+                malloc(sizeof(struct xsk_umem_info *) * n_queues);
         xsk_sockets = (struct xsk_socket_info **)
-        malloc(sizeof(struct xsk_socket_info *) * n_queues);
+                malloc(sizeof(struct xsk_socket_info *) * n_queues);
 
         if(!umems || !xsk_sockets){
                 printf("Não consegui alocar o vetor de UMEMS ou o vetor de sockets!\n");
@@ -331,6 +358,7 @@ int main(int argc, char **argv)
         enter_xsks_into_map(xsks_map_fd, xsk_sockets, n_queues);
 
         // -- XSKS sockets properly configurated. Go wait for packets --
+        // this function creates a loop, polling for new events in the sockets
         rx_and_process(&cfg, xsk_sockets, n_queues);
 
         // Cleanup 

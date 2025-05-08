@@ -62,6 +62,9 @@
 
 #define DEFAULT_INTERVAL	1000000
 
+#include "cora.h"
+#include "ppk_parser.h"
+
 static const struct option_wrapper long_options[] = {
 
 	{{"help",	 no_argument,		NULL, 'h' },
@@ -168,9 +171,10 @@ static void exit_application(int signal)
 #define MAX_CNT 100000ll
 static void lost_event_handler(void *ctx, int cpu, __u64 cnt){
 	lost_event_counter++;
-	printf("Lost an event on CPU %d!!\n", cpu);
+	//printf("Lost an event on CPU %d!!\n", cpu);
 }
 
+struct ppk_rule* rule;
 
 static void print_bpf_output(void *ctx, int cpu, void *data, __u32 size)
 {
@@ -179,18 +183,33 @@ static void print_bpf_output(void *ctx, int cpu, void *data, __u32 size)
         char payload[2048];
 	int j = 0, offset = 54;
         uint32_t len = s->pkt_len;
+        char* beggin = pkt + offset + 4;
+        /*
 	for (int i = offset+4; i < len+5; i++){
 		payload[j] = pkt[i];
 		j++;
 	}
         payload[j] = '\0';
-        printf("payload = %s\n", payload);
+        */
+        memcpy(payload, beggin, len - offset + 5);
+        //printf("CPU: %d\n",cpu);
+        //char payload[256] = "sdaTaiguaradfdsfdsfdsfdsasdsfsdfsdfdsfsdfsfdsfsdfdsfsd";
+        if(ahocora_search(rule->trie, payload, sizeof(payload))){puts("No!");}
+        //printf("payload = %s\n", payload);
         pkt_counter++;
-	//find_remaining_contents(rule, s->pkt_data, offset, s->pkt_len);
 }
 
 int main(int argc, char **argv)
 {
+        rule = malloc(sizeof(struct ppk_rule));
+        rule->sid = 1;
+        rule->num_contents = 1;
+        rule->trie = ahocora_create_trie();
+        ahocora_insert_pattern(rule->trie, "Taiguara", 8, 1);
+        ahocora_build_suffix_links(rule->trie);
+        ahocora_build_dict_suffix_links(rule->trie);
+
+
 	struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
 	struct config cfg = {
 		.do_unload = false,

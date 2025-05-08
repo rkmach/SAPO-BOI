@@ -236,12 +236,14 @@ int ahocora_search (struct ahocora_trie *trie, uint8_t *input, int size)
         int num_found_patterns = 0;
         struct ahocora_node *node = trie->array[0];
         for (int i = 0 ; i < size + 1 ; i++){
-                printf ("looking %hhx[%c]\n", input[i],  input[i]);
+                //printf ("looking %hhx[%c]\n", input[i],  input[i]);
                 if (node->rule_sid != -1 && node->hit == 0){
+                        //return 1;
                         node->hit = 1;
                         num_found_patterns++;
                 }
                 if (node->dict_suffix_link != -1) {
+                        //return 1;
                         num_found_patterns += ahocora_count_dict_hits (trie,
                                         trie->array[node->dict_suffix_link], 0);
                 }
