@@ -83,6 +83,7 @@ struct xdp_hints_mark xdp_hints_mark = { 0 };
 struct port_group_t** port_groups[2];  // uma pra tcp [0] e outra pra udp [1]
 FILE* log_file;
 int pkt_counter;
+char* payload;
 struct ppk_rule* rule;
 
 static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
@@ -109,7 +110,7 @@ static inline void process_packet(struct xsk_socket_info *xsk, uint64_t addr, ui
         //find_remaining_contents(rule, pkt, offset, len);
 }
 
-static inline int pkt_handler(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
+static inline void pkt_handler(struct xsk_socket_info *xsk, uint64_t addr, uint32_t len){
         uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
         char* begin, *end;
         int offset = 54;
@@ -118,13 +119,13 @@ static inline int pkt_handler(struct xsk_socket_info *xsk, uint64_t addr, uint32
         if(!begin || len <= offset)
                 return;
 
-	char payload[256];
 	memcpy(payload, begin, end-begin);
         if(ahocora_search(rule->trie, payload, sizeof(payload))){
                 //printf("aaaaaaaa\n\n");
                 //fprintf(log_file, "(Com contents) Casou com a regra de sid %d!!!!!\n", rule->sid);
                 return;
         }
+        pkt_counter++;
 }
 
 static inline void handle_receive_packets(struct xsk_socket_info* xsk_info){
@@ -145,7 +146,7 @@ static inline void handle_receive_packets(struct xsk_socket_info* xsk_info){
 
         // stock frames é o número de frames recebidos!
         stock_frames = xsk_prod_nb_free(&xsk_info->umem->fq, xsk_info->umem_frame_free);
-        pkt_counter += stock_frames;
+        //pkt_counter += stock_frames;
 
         if(stock_frames > 0){
                 // reserva stock_frames slots no ring fill da UMEM
@@ -228,7 +229,7 @@ void rx_and_process(struct config* config, struct xsk_socket_info** xsk_sockets,
         struct pollfd fds[n_queues];  // Essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
         for(int i = 0; i < n_queues; i++)
                 memset(fds, 0, sizeof(fds));
-        int i_queue, rc;
+        int i_queue;
 
         for(i_queue = 0; i_queue < n_queues; i_queue++){
                 fds[i_queue].fd = xsk_socket__fd(xsk_sockets[i_queue]->xsk);
@@ -305,8 +306,7 @@ int main(int argc, char **argv)
         strcpy(cfg.pin_dir, pin_dir);
 
         pin_maps_in_bpf_object(bpf_obj, &cfg, pin_basedir);
-
-        int err;
+        payload = (char*)malloc(1024);
 
         /*
         // inicia as estruturas BTF
@@ -369,12 +369,14 @@ int main(int argc, char **argv)
         free(umems);
         free(xsk_sockets);
 
-        printf("pkt_counter = %d\n", pkt_counter);
 
         //xsk_btf__free_xdp_hint(xdp_hints_mark.xbi);
         bpf_object__close(bpf_obj);
 
         xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+        free(rule);
+        printf("pkt_counter = %d\n", pkt_counter);
+        printf("Pacotes perdidos = %d\n", 1000000 - pkt_counter);
         return 0;
 }
 

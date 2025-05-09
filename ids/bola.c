@@ -180,21 +180,13 @@ static void print_bpf_output(void *ctx, int cpu, void *data, __u32 size)
 {
 	struct perf_event_sample* s = data;
         uint8_t* pkt = s->pkt_data;
-        char payload[2048];
-	int j = 0, offset = 54;
+        char payload[1024];
+	int offset = 54;
         uint32_t len = s->pkt_len;
-        char* beggin = pkt + offset + 4;
-        /*
-	for (int i = offset+4; i < len+5; i++){
-		payload[j] = pkt[i];
-		j++;
-	}
-        payload[j] = '\0';
-        */
-        memcpy(payload, beggin, len - offset + 5);
+        char* begin = pkt + offset + 4;
+        memcpy(payload, begin, len - offset + 5);
         //printf("CPU: %d\n",cpu);
-        //char payload[256] = "sdaTaiguaradfdsfdsfdsfdsasdsfsdfsdfdsfsdfsfdsfsdfdsfsd";
-        if(ahocora_search(rule->trie, payload, sizeof(payload))){puts("No!");}
+        if(ahocora_search(rule->trie, payload, sizeof(payload))){}
         //printf("payload = %s\n", payload);
         pkt_counter++;
 }
@@ -247,8 +239,6 @@ int main(int argc, char **argv)
     
     pin_maps_in_bpf_object(bpf_obj, &cfg, pin_basedir);
 
-    int err;
-
     if (setrlimit(RLIMIT_MEMLOCK, &rlim)) {
             fprintf(stderr, "ERROR: setrlimit(RLIMIT_MEMLOCK) \"%s\"\n",
                             strerror(errno));
@@ -259,6 +249,7 @@ int main(int argc, char **argv)
     int perf_event_map_fd = open_bpf_map_file(pin_dir, "perf_event_map", NULL);
 
     struct perf_buffer *pb;
+    /*LIBBPF_API struct perf_buffer * perf_buffer__new (int map_fd, size_t page_cnt, perf_buffer_sample_fn sample_cb, perf_buffer_lost_fn lost_cb, void *ctx, const struct perf_buffer_opts *opts)*/
     pb = perf_buffer__new(perf_event_map_fd, 8, print_bpf_output, lost_event_handler, NULL, NULL);
     ret = libbpf_get_error(pb);
     if (ret) {
@@ -266,12 +257,14 @@ int main(int argc, char **argv)
             return 1;
     }
 
-    while ((ret = perf_buffer__poll(pb, 1000)) >= 0) {
-    }
+    while ((ret = perf_buffer__poll(pb, 1000)) >= 0){} // Faz Poll a cada 100ms
 
     xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
     printf("Eventos perdidos = %d\n", lost_event_counter);
     printf("pkt_counter = %d\n", pkt_counter);
+    printf("Pacotes perdidos = %d\n", 1000000 - pkt_counter);
+    printf("Média de pacotes por eventos: %.4f\n", (1000000-(float)pkt_counter)/(float)lost_event_counter);
+    free(rule);
 
     return 0;
 }
