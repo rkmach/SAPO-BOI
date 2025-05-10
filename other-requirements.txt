@@ -1,0 +1,9 @@
+bpftool:
+	https://github.com/libbpf/bpftool/blob/main/README.md
+libmnl:
+	https://www.linuxfromscratch.org/blfs/view/git/basicnet/libmnl.html
+	tar -xvjf <file>.tar.bz2
+m4:
+	sudo apt install m4
+libpcap:
+	sudo apt install libpcap-dev

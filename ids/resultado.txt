@@ -1,0 +1,24 @@
+
+Velocidade: 1000
+rule_sid = 1
+
+map dir: /sys/fs/bpf/amor
+
+ - Pinning maps in /sys/fs/bpf/amor/
+INFO: xdp_link_detach() removed XDP prog ID:377 on ifindex:10
+Eventos perdidos = 0
+pkt_counter = 0
+Pacotes perdidos = 1000000
+Média de pacotes por eventos: inf
+
+Velocidade: 2000
+rule_sid = 1
+
+map dir: /sys/fs/bpf/amor
+
+ - Pinning maps in /sys/fs/bpf/amor/
+INFO: xdp_link_detach() removed XDP prog ID:383 on ifindex:10
+Eventos perdidos = 0
+pkt_counter = 0
+Pacotes perdidos = 1000000
+Média de pacotes por eventos: inf
