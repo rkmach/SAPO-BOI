@@ -24,6 +24,7 @@ int main ()
 {
         struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
         if (setrlimit(RLIMIT_MEMLOCK, &rlim)) {
+                puts("asnd");
                 return -1;
         }
         prog = xdp_program__open_file ("af_xdp_kern.o", "xdp", 0);
@@ -33,7 +34,7 @@ int main ()
                 return 1;
         }
 
-        int ifindex = 6;
+        int ifindex = 7;
 
         int ret = xdp_program__attach (prog, ifindex, XDP_MODE_SKB, 0);
         if (ret) {
@@ -42,8 +43,8 @@ int main ()
         }
 
         struct bpf_object *bpf_obj = xdp_program__bpf_obj (prog);
-        signal(SIGINT, int_exit);
-        signal(SIGTERM, int_exit);
+        //signal(SIGINT, int_exit);
+        //signal(SIGTERM, int_exit);
         
         printf ("done %d", getpid());
         return 0;

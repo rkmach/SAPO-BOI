@@ -55,6 +55,7 @@ int xdp_ids_func(struct xdp_md *ctx)
         return XDP_PASS;
 
     void* end_ip = nh.pos; // aponta pro final do cabeçalho IP
+    void *end_tcp = NULL;
     char* letter;
     char method[5];
     int delta;
@@ -64,9 +65,10 @@ int xdp_ids_func(struct xdp_md *ctx)
                 if (nh.pos + sizeof(tcph) > data_end){
                         return -1;
                 }
+                end_tcp = nh.pos;
                 letter = nh.pos + 1;
-                //bpf_printk("%c\n", *letter);
-                //bpf_printk("%c\n", *(letter + 1));
+                bpf_printk("letra = %d\n", *letter);
+                bpf_printk("letra + 1 = %d\n", *(letter + 1));
                 if (*letter == 'E' || *letter == 'O'){
                         method[0] = *((char*)nh.pos);
                         method[1] = *letter;
@@ -74,14 +76,14 @@ int xdp_ids_func(struct xdp_md *ctx)
                         method[3] = *(letter + 2);
                         method[4] = '\0';
                         bpf_printk("%s\n", method);
-                        char* new_content = (char*)end_ip;
+                        char* new_content = (char*)end_tcp;
                         if (new_content + sizeof(method) > data_end)
                                 return -1;
                         #pragma unroll
-                        for(int i = 0; i < sizeof(method); i++){
+                        for(int i = 1; i < sizeof(method); i++){
                                 *(new_content + i) = *(method + i);
                         }
-                        delta = data_end - (end_ip + 5);
+                        delta = data_end - (end_tcp + 5);
                         bpf_printk("delta1 = %d\n", delta);
                         if(bpf_xdp_adjust_tail(ctx, 0-delta) < 0){
                                 bpf_printk("Deu pau 1\n");
