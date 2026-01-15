@@ -5,15 +5,16 @@ BPF_TARGETS    := af_xdp_kern
 #BPF_TARGETS    := suspicion-xdp
 
 # Define C-code objects USER_TARGETS needs
-#USER_TARGETS_OBJS := common_params.o common_user_bpf_xdp.o
+USER_TARGETS_OBJS := common_params.o common_user_bpf_xdp.o
 #USER_TARGETS_OBJS += hashmap.o lib_xsk_extend.o
 #USER_TARGETS_OBJS += btf.o
-#USER_TARGETS_OBJS += xsk_socket.o
+USER_TARGETS_OBJS += xsk_socket.o
 #USER_TARGETS_OBJS += automaton.o
 #USER_TARGETS_OBJS += cora.o
 
 # The USER_TARGETS_OBJS have a dependency of this header file
 USER_TARGETS_OBJS_DEPS += common_defines.h
+#USER_TARGETS_OBJS_DEPS += xsk_socket.h
 
 LDLIBS     += -lpthread
 LDLIBS     += -lrt
