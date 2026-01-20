@@ -2,6 +2,7 @@
 
 USER_TARGETS   := loader
 BPF_TARGETS    := af_xdp_kern
+BPF_TARGETS    := xdp_redirect
 #BPF_TARGETS    := suspicion-xdp
 
 # Define C-code objects USER_TARGETS needs
@@ -18,6 +19,7 @@ USER_TARGETS_OBJS_DEPS += common_defines.h
 
 LDLIBS     += -lpthread
 LDLIBS     += -lrt
+LDLIBS     += -lpcap
 
 LIB_DIR = ../lib
 

@@ -27,6 +27,7 @@
 #include <linux/udp.h>
 #include <linux/socket.h>
 #include <sys/syscall.h>
+#include <pcap.h>
 
 /*
 #ifndef SO_PREFER_BUSY_POLL

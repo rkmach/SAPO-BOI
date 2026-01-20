@@ -15,12 +15,17 @@
 #include "xsk_socket.h"
 #include "common_defines.h"
 #include <poll.h>
+//#include <pcap.h>
+//#include <time.h>
 
 struct xdp_program * prog;
 // Sobrescrever a seguinte variável com o índice da interface desejada
 int ifindex = 7;
 int n_queues = 1;
 int global_exit = 0;
+
+//pcap_t *pcap_handle;
+//pcap_dumper_t *file_pcap;
 
 static void exit_application(int sig)
 {
@@ -70,8 +75,29 @@ static inline void handle_receive_packets(struct xsk_socket_info* xsk_info){
                 len = xsk_ring_cons__rx_desc(&xsk_info->rx, idx_rx)->len;
                 idx_rx++;
 
-                //COLOCANDO O PACOTE NUM PCAP
+                uint8_t *pkt = xsk_umem__get_data(xsk_info->umem->buffer, addr);
 
+                //COLOCANDO O PACOTE NUM PCAP
+                /*
+                pcap_handle = pcap_open_dead(1, 65535);
+                file_pcap = pcap_dump_open(pcap_handle, "teste.pcap");
+                if (file_pcap == NULL) {
+                        fprintf(stderr, "Error opening savefile: %s\n", pcap_geterr(pcap_handle));
+                        return;
+                }
+
+                struct pcap_pkthdr header;
+                gettimeofday(&header.ts, NULL); // Current timestamp
+                header.caplen = len;    // Length of portion present in file
+                header.len = len;       // Actual length of packet on wire
+
+                puts("111");
+                pcap_dump((u_char*)file_pcap, &header, pkt);
+                puts("222");
+
+                pcap_dump_close(file_pcap);
+                pcap_close(pcap_handle);
+                */
 
                 // adiciona o endereço à lista de endereços disponíveis do fill ring da UMEM
                 xsk_free_umem_frame(xsk_info, addr);
@@ -97,7 +123,8 @@ int main ()
 
         struct config cfg = {
                 .do_unload = true,
-                .filename = "af_xdp_kern.o",
+                //.filename = "af_xdp_kern.o",
+                .filename = "xdp_redirect.o",
                 .progsec = "xdp",
                 .batch_pkts = BATCH_PKTS_DEFAULT,
         };
@@ -106,7 +133,8 @@ int main ()
         cfg.ifname = "microsec";
         cfg.ifindex = 7;
 
-        prog = xdp_program__open_file("af_xdp_kern.o", "xdp", 0);
+        //prog = xdp_program__open_file("af_xdp_kern.o", "xdp", 0);
+        prog = xdp_program__open_file("xdp_redirect.o", "xdp", 0);
 
         if (!prog)
         {
@@ -157,6 +185,8 @@ int main ()
         // fill xsks map
         enter_xsks_into_map(xsks_map_fd, xsk_sockets, n_queues);
 
+        // ATÉ AQUI EU SÓ CRIEI O MAPA DE REDIRECT (SEM PINNAR!) E O  PREENCHI.
+        return 0;
 
         // Primeiro, faz polling pra receber na UMEM
         struct pollfd fds[n_queues];  // Essa estrutura é entendida pela syscall poll(), que é usada para verificar se há novos eventos no socket
